@@ -484,7 +484,9 @@ class Parser {
         let scanner = new Scanner(true);
         let tokens = scanner.scan(src);
         this.reader = new Reader(tokens);
-        return _readForm();
+        let ret = _readForm();
+        this.reader = null;
+        return ret;
     }
 }
 
