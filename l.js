@@ -200,6 +200,99 @@ class Scanner{
     }
 }
 
+/**
+ * reader
+ */
+class Reader{
+    /**
+     * @param {Token[]} tokens
+     */
+    constructor(tokens){
+        this.tokens=tokens
+        this.pos=0
+    }
+    
+    /**
+     * @returns {Token}
+     */
+    next(){
+        this.pos++
+        return this.tokens[this.pos]
+    }
+
+    /**
+     * @returns {Token}
+     */
+    peek(){
+        return this.tokens[this.pos]
+    }
+
+    /**
+     * @returns {boolean}
+     */
+    atEnd(){
+        return this.pos>=this.tokens.length
+    }
+}
+
+/**
+ * value
+ */
+class Value{
+}
+
+class NilValue extends Value{
+    static Value=new NilValue()
+}
+
+class BoolValue extends Value{
+    static True=new BoolValue(true)
+    static False=new BoolValue(false)
+    /**
+     * @param {boolean} b 
+     */
+    constructor(b){
+        this.value=b
+    }
+}
+
+class NumValue extends Value{
+    /**
+     * @param {number} num 
+     */
+    constructor(num){
+        this.num=num
+    }
+}
+
+class StrValue extends Value{
+    /**
+     * @param {string} s 
+     */
+    constructor(s) {
+        this.s=s
+    }
+}
+
+/**
+ * @param {Reader} reader
+ * @returns {Value}
+ */
+function readForm(reader){
+
+}
+
+/**
+ * @param {string} src
+ * @returns {Value}
+ */
+function readStr(src){
+    let scanner=new Scanner(true)
+    let tokens=scanner.scan(src)
+    let reader=new Reader(tokens)
+    return readForm(reader)
+}
+
 function test(){
     let s=new Scanner(true)
     let src="(+ 1 2)"
