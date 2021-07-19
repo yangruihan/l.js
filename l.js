@@ -1,4 +1,6 @@
-// Token
+/**
+ * token
+ */
 class Token{
     /**
      * @param {string} symbol 
@@ -13,6 +15,9 @@ class Token{
          * @type {number}
          */
         this.line=line
+    }
+    toString(){
+        return `<token ${this.symbol} ${this.line}>`
     }
 }
 
@@ -102,7 +107,7 @@ class Scanner{
      * @returns {Token}
      */
     _makeToken(){
-        return Token(
+        return new Token(
             this.src.substring(this.startidx,this.crtidx),
             this.line)
     }
@@ -170,6 +175,10 @@ class Scanner{
             return this._makeToken()
         }
     }
+    /**
+     * @param {string} src 
+     * @returns {Token[]}
+     */
     scan(src){
         this._init(src)
         let tokens=[]
@@ -180,3 +189,14 @@ class Scanner{
         return tokens
     }
 }
+
+function test(){
+    let s=new Scanner()
+    let src="(+ 1 2)"
+    let tokens=s.scan(src)
+    tokens.forEach(t => {
+        console.log(t.toString())
+    })
+}
+
+test()
