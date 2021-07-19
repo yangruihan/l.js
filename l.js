@@ -236,7 +236,7 @@ class Reader {
      */
     next() {
         this.pos++;
-        return this.tokens[this.pos];
+        return this.tokens[this.pos - 1];
     }
 
     /**
@@ -514,7 +514,7 @@ class Parser {
         }
 
         r.next(); // consume ")"
-        return ListValue(items);
+        return new ListValue(items);
     }
     /**
      * @returns {Value}
@@ -542,7 +542,7 @@ class Parser {
         }
 
         r.next(); // consume "]"
-        return VectorValue(items);
+        return new VectorValue(items);
     }
 
     /**
@@ -598,7 +598,7 @@ class Parser {
         } else if (t.symbol.startsWith('"')) {
             return new StrValue(t.symbol.substring(1, t.symbol.length - 1));
         } else if (!isNaN(t.symbol)) {
-            return new NumberValue(Number(t.symbol));
+            return new NumValue(Number(t.symbol));
         } else {
             return new SymbolValue(t.symbol);
         }
@@ -652,7 +652,7 @@ class Parser {
         let scanner = new Scanner(true);
         let tokens = scanner.scan(src);
         this.reader = new Reader(tokens);
-        let ret = _readForm();
+        let ret = this._readForm();
         this.reader = null;
         return ret;
     }
