@@ -17,7 +17,7 @@ class Token{
         this.line=line
     }
     toString(){
-        return `<token ${this.symbol} ${this.line}>`
+        return `<token s:${this.symbol} l:${this.line}>`
     }
 }
 
@@ -25,8 +25,12 @@ class Token{
  * scanner
  */
 class Scanner{
-    constructor(){
-       this._init(null) 
+    /**
+     * @param {boolean} debug 
+     */
+    constructor(debug){
+        this.debug=debug
+        this._init(null) 
     }
     /**
      * @param {string} src 
@@ -100,6 +104,8 @@ class Scanner{
                 while(this._peek()!=="\n"&&!this._atEnd())
                     this._next()
                 this.line++
+            } else {
+                return
             }
         }
     }
@@ -151,7 +157,7 @@ class Scanner{
     _scanToken(){
         this._skipIgnoredPart()
 
-        this.startid=this.crtidx
+        this.startidx=this.crtidx
         if(this._atEnd())return this._makeToken()
 
         let chr=this._next()
@@ -183,7 +189,11 @@ class Scanner{
         this._init(src)
         let tokens=[]
         while(!this._atEnd()){
-            tokens.push(this._scanToken())
+            let token=this._scanToken()
+            if(this.debug){
+                console.log(token.toString())
+            }
+            tokens.push(token)
         }
         this._free()
         return tokens
@@ -191,12 +201,9 @@ class Scanner{
 }
 
 function test(){
-    let s=new Scanner()
+    let s=new Scanner(true)
     let src="(+ 1 2)"
     let tokens=s.scan(src)
-    tokens.forEach(t => {
-        console.log(t.toString())
-    })
 }
 
 test()
