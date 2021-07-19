@@ -276,6 +276,7 @@ class BoolValue extends Value {
      * @param {boolean} b
      */
     constructor(b) {
+        super();
         this.value = b;
     }
 
@@ -289,6 +290,7 @@ class NumValue extends Value {
      * @param {number} num
      */
     constructor(num) {
+        super();
         this.num = num;
     }
     toString() {
@@ -301,6 +303,7 @@ class StrValue extends Value {
      * @param {string} s
      */
     constructor(s) {
+        super();
         this.s = s;
     }
 
@@ -315,6 +318,7 @@ class ListValue extends Value {
      * @param {Value} meta
      */
     constructor(items, meta) {
+        super();
         if (items === undefined) items = [];
         if (meta === undefined) meta = NilValue.Value;
         this.items = items;
@@ -334,6 +338,7 @@ class SymbolValue extends Value {
      * @param {string} s
      */
     constructor(s) {
+        super();
         this.symbol = s;
     }
 
@@ -347,6 +352,7 @@ class KeywordValue extends Value {
      * @param {string} k
      */
     constructor(k) {
+        super();
         this.keyword = k;
     }
 
@@ -361,6 +367,7 @@ class VectorValue extends Value {
      * @param {Value} meta
      */
     constructor(items, meta) {
+        super();
         if (items === undefined) items = [];
         if (meta === undefined) meta = NilValue.Value;
         this.items = items;
@@ -380,6 +387,7 @@ class MapValue extends Value {
      * @param {Value} meta
      */
     constructor(items, meta) {
+        super();
         if (meta === undefined) meta = NilValue.Value;
         this.meta = meta;
 
@@ -398,6 +406,7 @@ class FuncValue extends Value {
      * @param {Value} meta
      */
     constructor(f, meta) {
+        super();
         this.f = f;
         this.meta = meta;
     }
@@ -412,6 +421,7 @@ class EnvValue extends Value {
      * @param {EnvValue} outer
      */
     constructor(outer) {
+        super();
         this.outer = outer;
     }
 
@@ -429,6 +439,7 @@ class ClosureValue extends Value {
      * @param {Value} meta
      */
     constructor(env, params, body, ismacro, meta) {
+        super();
         this.env = env;
         this.params = params;
         this.body = body;
@@ -446,6 +457,7 @@ class AtomValue extends Value {
      * @param {Value} ref
      */
     constructor(ref) {
+        super();
         this.ref = ref;
     }
 
@@ -459,6 +471,7 @@ class ExceptionValue extends Value {
      * @param {string} info
      */
     constructor(info) {
+        super();
         this.info = info;
     }
 
