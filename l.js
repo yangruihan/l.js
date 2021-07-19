@@ -259,6 +259,18 @@ class Reader {
  */
 class Value {
     static None = new Value();
+
+    static isMacro(v) {
+        return v instanceof ClosureValue && v.ismacro;
+    }
+
+    static isMacroCall(v, env) {
+        if (!(v instanceof ListValue) || !(v.items[0] instanceof SymbolValue)) {
+            return false;
+        }
+        let f = env.get(v.items[0]);
+        return Value.isMacro(f);
+    }
 }
 
 class NilValue extends Value {
@@ -419,14 +431,66 @@ class FuncValue extends Value {
 class EnvValue extends Value {
     /**
      * @param {EnvValue} outer
+     * @param {Value[]} binds
+     * @param {Value[]} exprs
      */
-    constructor(outer) {
+    constructor(outer, binds, exprs) {
         super();
+        if (outer === undefined) outer = null;
         this.outer = outer;
+        this.data = {};
+
+        if (binds !== undefined && exprs !== undefined) {
+            for (let i = 0; i < binds.length; i++) {
+                let k = binds[i];
+                if (k.symbol === "&") {
+                    let vars = [];
+                    for (let j = i; j < exprs.length; j++) {
+                        vars.push(exprs[j]);
+                    }
+                    this.set(binds[i + 1], new ListValue(vars));
+                    break;
+                } else {
+                    this.set(k, exprs[i]);
+                }
+            }
+        }
     }
 
     toString() {
         return `<EnvValue outer: ${this.outer}>`;
+    }
+
+    /**
+     * @param {SymbolValue} s
+     * @param {Value} v
+     * @returns {Value}
+     */
+    set(s, v) {
+        this.data[s.symbol] = v;
+        return v;
+    }
+
+    /**
+     * @param {SymbolValue} symbol
+     * @returns {Value}
+     */
+    find(symbol) {
+        let ret = this.data[symbol.symbol];
+        let o = this.outer;
+        while (ret === undefined && o !== null) {
+            ret = o.data[symbol.symbol];
+            o = o.outer;
+        }
+        return ret !== undefined ? ret : NilValue.Value;
+    }
+
+    /**
+     * @param {SymbolValue} symbol
+     * @returns {Value}
+     */
+    get(symbol) {
+        return this.find(symbol);
     }
 }
 
@@ -658,13 +722,47 @@ class Parser {
     }
 }
 
-/**
- * @param {string} src
- * @returns {Value}
- */
-function readStr(src) {
-    let p = new Parser();
-    return p.parse(src);
+class Interpreter {
+    constructor() {
+        this.env = new EnvValue();
+    }
+
+    /**
+     * @param {Value} v
+     * @param {EnvObj} env
+     * @returns {Value}
+     */
+    macroExpand(v, env) {
+        while (Value.isMacroCall(v, env)) {
+            let f = env.get(v.items[0]);
+        }
+    }
+
+    /**
+     * @param {string} src
+     * @returns {Value}
+     */
+    read(src) {
+        let p = new Parser();
+        return p.parse(src);
+    }
+
+    eval(v, env) {
+        while (true) {
+            if (v instanceof ListValue) {
+                if (v.items.length === 0) {
+                    return v;
+                } else {
+                    v = this.macroExpand(v, env);
+                }
+            }
+        }
+    }
+
+    repl(src) {
+        let ast = readStr(src);
+        let ret = eval(ast, this.env);
+    }
 }
 
 function test() {
