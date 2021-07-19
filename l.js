@@ -502,6 +502,38 @@ class Parser {
         return new MapValue(items);
     }
     /**
+     * @param {string} symbol
+     */
+    _expand(symbol) {
+        let r = this.reader;
+        r.next();
+        let s = new SymbolValue(symbol);
+        let form = this._readForm();
+        return new ListValue([s, form]);
+    }
+    /**
+     * @returns {Value}
+     */
+    _readAtom() {
+        let r = this.reader;
+        let t = r.next();
+        if (t.symbol === "true") {
+            return BoolValue.True;
+        } else if (t.symbol === "false") {
+            return BoolValue.False;
+        } else if (t.symbol === "nil") {
+            return NilValue.Value;
+        } else if (t.symbol.startsWith(":")) {
+            return new KeywordValue(t.symbol);
+        } else if (t.symbol.startsWith('"')) {
+            return new StrValue(t.symbol.substring(1, t.symbol.length - 1));
+        } else if (!isNaN(t.symbol)) {
+            return new NumberValue(Number(t.symbol));
+        } else {
+            return new SymbolValue(t.symbol);
+        }
+    }
+    /**
      * @returns {Value}
      */
     _readForm() {
@@ -515,6 +547,31 @@ class Parser {
             return this._readVector();
         } else if (t.symbol === "{") {
             return this._readMap();
+        } else if (t.symbol === "'") {
+            return this._expand("quote");
+        } else if (t.symbol === "`") {
+            return this._expand("quasiquote");
+        } else if (t.symbol === "~") {
+            return this._expand("unquote");
+        } else if (t.symbol === "~@") {
+            return this._epxand("splice-unquote");
+        } else if (t.symbol === "@") {
+            return this._expand("deref");
+        } else if (t.symbol === "^") {
+            let r = this.reader;
+            r.next();
+            let s = new SymbolValue("with-meta");
+            let f = this._readForm();
+            let f2 = this._readForm();
+            return new ListValue([s, f2, f]);
+        } else if (t.symbol === ")") {
+            //TODO:
+        } else if (t.symbol === "]") {
+            //TODO:
+        } else if (t.symbol === "}") {
+            //TODO:
+        } else {
+            return this._readAtom();
         }
     }
     /**
