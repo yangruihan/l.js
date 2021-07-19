@@ -1,7 +1,7 @@
 /**
  * token
  */
-class Token {
+ class Token {
     /**
      * @param {string} symbol
      * @param {number} line
@@ -79,7 +79,7 @@ class Scanner {
      * @returns {string}
      */
     _next() {
-        this.crtidx += 1;
+        this.crtidx++;
         return this.src.charAt(this.crtidx - 1);
     }
     /**
@@ -122,7 +122,7 @@ class Scanner {
      */
     _scanStr() {
         let chr = this._peek();
-        while (chr !== '"' && this._atEnd()) {
+        while (chr !== '"' && !this._atEnd()) {
             if (chr === "\n") {
                 this.line++;
             }
@@ -255,6 +255,28 @@ class Reader {
 }
 
 /**
+ * printer
+ */
+class Printer {
+    constructor() {
+    }
+
+    /**
+     * @param {Value} v
+     * @param {boolean} readably
+     * @returns {string}
+     */
+    printStr(v, readably) {
+        if (readably === undefined)
+            readably = false;
+
+        // TODO: finish this function
+
+        return v.toString();
+    }
+}
+
+/**
  * value
  */
 class Value {
@@ -270,6 +292,11 @@ class Value {
         }
         let f = env.get(v.items[0]);
         return Value.isMacro(f);
+    }
+
+    static isPair(v) {
+        return (v instanceof ListValue || v instanceof VectorValue)
+                && v.items.length > 0;
     }
 }
 
@@ -369,7 +396,7 @@ class KeywordValue extends Value {
     }
 
     toString() {
-        return `<KeywordValue ${this.k}>`;
+        return `<KeywordValue ${this.keyword}>`;
     }
 }
 
@@ -385,12 +412,14 @@ class VectorValue extends Value {
         this.items = items;
         this.meta = meta;
     }
+    
     toString() {
         let s = "<VectorValue [";
         for (let i = 0; i < this.items.length; i++) {
             s += `${this.items[i]} `;
         }
         s += "]>";
+        return s;
     }
 }
 
@@ -403,12 +432,32 @@ class MapValue extends Value {
         if (meta === undefined) meta = NilValue.Value;
         this.meta = meta;
 
+        /**
+         * @type {Map<Value, Value>}
+         */
         this.items = {};
         if (items !== undefined) {
             for (let i = 0; i < items.length; i += 2) {
                 this.items[items[i]] = items[i + 1];
             }
         }
+    }
+
+    /**
+     * @param {Value} key 
+     * @param {Value} value 
+     */
+    set(key,value) {
+        this.items[key] = value;
+    }
+
+    toString() {
+        let s = "<MapValue {";
+        for (const key in this.items) {
+            s += `[${key.toString()}: ${this.items[key].toString()}] `;
+        }
+        s += "}>"
+        return s;
     }
 }
 
@@ -419,8 +468,22 @@ class FuncValue extends Value {
      */
     constructor(f, meta) {
         super();
+        if (meta === undefined)
+            meta = null;
+
         this.f = f;
+        this.ismacro = false;
         this.meta = meta;
+    }
+
+    /**
+     * @param {FuncValue} v
+     * @returns {FuncValue}
+     */
+    clone(v) {
+        let f = new FuncValue(v.f);
+        f.ismacro = false;
+        return f;
     }
 
     toString() {
@@ -491,28 +554,6 @@ class EnvValue extends Value {
      */
     get(symbol) {
         return this.find(symbol);
-    }
-}
-
-class ClosureValue extends Value {
-    /**
-     * @param {EnvValue} env
-     * @param {Value} params
-     * @param {Value} body
-     * @param {boolean} ismacro
-     * @param {Value} meta
-     */
-    constructor(env, params, body, ismacro, meta) {
-        super();
-        this.env = env;
-        this.params = params;
-        this.body = body;
-        this.ismacro = ismacro;
-        this.meta = meta;
-    }
-
-    toString() {
-        return `<ClosureValue ${this}>`;
     }
 }
 
@@ -729,12 +770,34 @@ class Interpreter {
 
     /**
      * @param {Value} v
-     * @param {EnvObj} env
+     * @param {EnvValue} env
      * @returns {Value}
      */
     macroExpand(v, env) {
         while (Value.isMacroCall(v, env)) {
             let f = env.get(v.items[0]);
+            v = f.apply(null, v.items.splice(1));
+        }
+        return v;
+    }
+
+    /**
+     * @param {Value} v 
+     * @param {EnvValue} env 
+     * @returns {Value}
+     */
+    evalAst(v, env) {
+        if (v instanceof SymbolValue) {
+            let ret = env.get(v);
+            return ret;
+        } else if (v instanceof ListValue) {
+            let ret = new ListValue();
+            for (let i = 0; i < v.items.length; i++) {
+                ret.items.push(this.eval(v.items[i], env));
+            }
+            return ret;
+        } else {
+            return v;
         }
     }
 
@@ -747,6 +810,11 @@ class Interpreter {
         return p.parse(src);
     }
 
+    /**
+     * @param {Value} v
+     * @param {EnvValue} env
+     * @returns {Value}
+     */
     eval(v, env) {
         while (true) {
             if (v instanceof ListValue) {
@@ -754,21 +822,134 @@ class Interpreter {
                     return v;
                 } else {
                     v = this.macroExpand(v, env);
+                    if (!(v instanceof ListValue)) {
+                        return this.evalAst(v, env);
+                    }
+
+                    let firstValue = v.items[0].symbol;
+                    if (firstValue === "def!") {
+                        return env.set(v.items[1], this.eval(v.items[2], env));
+                    } else if (firstValue === "defmacro!") {
+                        let f = this.eval(v.items[2], env);
+                        let newF = f.clone();
+                        newF.ismacro = true;
+                        return env.set(v.items[1], newF);
+                    } else if (firstValue === "let*") {
+                        let newEnv = new EnvValue(env)
+                        /**
+                         * @type {Value[]}
+                         */
+                        let binds = v.items[1].items
+                        
+                        for (let i = 0; i < binds.length; i+=2) {
+                            let k = binds[i];
+                            let v = this.eval(binds[i+1], newEnv);
+                            newEnv.set(k,v);
+                        }
+
+                        v = v.items[2];
+                        env = newEnv;
+                    } else if (firstValue === "do") {
+                        let seq = v.items.splice(1);
+                        if (seq.length > 0) {
+                            this.evalAst(new ListValue(seq), env);
+                        }
+                        v = v.items[v.items.length - 1];
+                    } else if (firstValue === "if") {
+                        let cond = this.eval(v.items[1], env);
+                        if (cond.value) {
+                            v = v.items[2];
+                        } else {
+                            v = v.items[3] === undefined ? NilValue.Value : v.items[3];
+                        }
+                    } else if (firstValue === "fn*") {
+                        return new FuncValue(function(...args) {
+                            let newEnv = new EnvValue(env, v.items[1].items, args);
+                            return this.eval(v.items[2], newEnv);
+                        });
+                    } else if (firstValue === "quote") {
+                        return v.items[1];
+                    } else if (firstValue === "quasiquote") {
+                        let quasiquote = null;
+                        quasiquote = function(a) {
+                            if (!Value.isPair(a)) {
+                                return new ListValue([SymbolValue("quote"), a]);
+                            } else {
+                                let firstValue =a.items[0];
+                                if (firstValue instanceof SymbolValue
+                                    && firstValue.symbol === "unquote") {
+                                        return a.items[1];
+                                } else if (Value.isPair(firstValue) 
+                                            && firstValue.items[0] instanceof SymbolValue
+                                            && firstValue.items[0].symbol === "splice-unquote") {
+                                    return new ListValue([
+                                        new SymbolValue("concat"),
+                                        firstValue.items[1],
+                                        quasiquote(new ListValue(a.items.splice(1)))
+                                    ]);
+                                } else {
+                                    return new ListValue([
+                                        new SymbolValue("cons"),
+                                        quasiquote(a.items[0]),
+                                        quasiquote(new ListValue(a.items.splice(1)))
+                                    ]);
+                                }
+                            }
+                        };
+                        v = quasiquote(v.items[1]);
+                    } else if (firstValue === "macroexpand") {
+                        return this.macroExpand(v.items[1], env);
+                    } else if (firstValue === "try*") {
+                        // TODO: exception
+                    } else {
+                        let ret = this.evalAst(v, env);
+                        let func = ret.items[0];
+                        let params = ret.items.splice(1);
+                        return func.apply(null, params);
+                    }
                 }
+            } else if (v instanceof VectorValue) {
+                let newV = [];
+                for (let i = 0; i < v.items.length; i++) {
+                    newV.push(this.eval(v.items[i], env));
+                }
+                return new VectorValue(newV);
+            } else if (v instanceof MapValue) {
+                let newMap = new MapValue();
+                for (const key in v.items) {
+                    newMap.set(key, this.eval(v.items[key], env));
+                }
+                return newMap;
+            } else {
+                return this.evalAst(v, env);
             }
         }
     }
 
+    /**
+     * @param {Value} v
+     * @returns {string}
+     */
+    print(v) {
+        let p = new Printer();
+        return p.printStr(v);
+    }
+
+    /**
+     * @param {string} src
+     */
     repl(src) {
-        let ast = readStr(src);
-        let ret = eval(ast, this.env);
+        let ast = this.read(src);
+        console.log(ast);
+        let ret = this.eval(ast, this.env);
+        return this.print(ret);
     }
 }
 
 function test() {
-    let p = new Parser();
-    let ast = p.parse("(+ 1 2)");
-    console.log(ast);
+    let vm = new Interpreter();
+    let src = "(+ 1 2)";
+    console.log(vm.repl(src));
 }
 
 test();
