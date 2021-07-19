@@ -342,8 +342,16 @@ class MapValue extends Value {
     /**
      * @param {Value} meta
      */
-    constructor(meta) {
+    constructor(items, meta) {
+        if (meta === undefined) meta = NilValue.Value;
         this.meta = meta;
+
+        this.items = {};
+        if (items !== undefined) {
+            for (let i = 0; i < items.length; i += 2) {
+                this.items[items[i]] = items[i + 1];
+            }
+        }
     }
 }
 
@@ -432,12 +440,15 @@ class Parser {
             if (r.atEnd()) {
                 //TODO: report error
             }
+            items.push(v);
         }
 
         r.next(); // consume ")"
         return ListValue(items);
     }
-
+    /**
+     * @returns {Value}
+     */
     _readVector() {
         let r = this.reader;
         r.next(); // consume "["
@@ -457,10 +468,38 @@ class Parser {
             if (r.atEnd()) {
                 //TODO: report error
             }
+            items.push(v);
         }
 
         r.next(); // consume "]"
         return VectorValue(items);
+    }
+
+    /**
+     * @returns {Value}
+     */
+    _readMap() {
+        let r = this.reader;
+        r.next(); // consume "{"
+        if (r.atEnd()) {
+            //TODO: report error
+        }
+
+        // check empty map
+        if (r.peek().symbol === "}") {
+            r.next();
+            return new MapValue();
+        }
+        let items = [];
+        while (r.peek().symbol !== "}") {
+            let v = this._readForm();
+            if (r.atEnd()) {
+                //TODO: report error
+            }
+            items.push(v);
+        }
+        r.next(); // consume "}"
+        return new MapValue(items);
     }
     /**
      * @returns {Value}
@@ -474,6 +513,8 @@ class Parser {
             return this._readList();
         } else if (t.symbol === "[") {
             return this._readVector();
+        } else if (t.symbol === "{") {
+            return this._readMap();
         }
     }
     /**
