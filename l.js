@@ -263,6 +263,10 @@ class Value {
 
 class NilValue extends Value {
     static Value = new NilValue();
+
+    toString() {
+        return `<NilValue>`;
+    }
 }
 
 class BoolValue extends Value {
@@ -274,6 +278,10 @@ class BoolValue extends Value {
     constructor(b) {
         this.value = b;
     }
+
+    toString() {
+        return `<BoolValue ${this.value ? "True" : "False"}>`;
+    }
 }
 
 class NumValue extends Value {
@@ -283,6 +291,9 @@ class NumValue extends Value {
     constructor(num) {
         this.num = num;
     }
+    toString() {
+        return `<NumValue ${this.num}>`;
+    }
 }
 
 class StrValue extends Value {
@@ -291,6 +302,10 @@ class StrValue extends Value {
      */
     constructor(s) {
         this.s = s;
+    }
+
+    toString() {
+        return `<StrValue "${this.s}">`;
     }
 }
 
@@ -305,6 +320,13 @@ class ListValue extends Value {
         this.items = items;
         this.meta = meta;
     }
+    toString() {
+        let s = "<ListValue (";
+        for (let i = 0; i < this.items.length; i++) {
+            s += `${this.items[i]} `;
+        }
+        s += ")>";
+    }
 }
 
 class SymbolValue extends Value {
@@ -314,6 +336,10 @@ class SymbolValue extends Value {
     constructor(s) {
         this.symbol = s;
     }
+
+    toString() {
+        return `<SymbolValue ${this.s}>`;
+    }
 }
 
 class KeywordValue extends Value {
@@ -322,6 +348,10 @@ class KeywordValue extends Value {
      */
     constructor(k) {
         this.keyword = k;
+    }
+
+    toString() {
+        return `<KeywordValue ${this.k}>`;
     }
 }
 
@@ -335,6 +365,13 @@ class VectorValue extends Value {
         if (meta === undefined) meta = NilValue.Value;
         this.items = items;
         this.meta = meta;
+    }
+    toString() {
+        let s = "<VectorValue [";
+        for (let i = 0; i < this.items.length; i++) {
+            s += `${this.items[i]} `;
+        }
+        s += "]>";
     }
 }
 
@@ -364,6 +401,10 @@ class FuncValue extends Value {
         this.f = f;
         this.meta = meta;
     }
+
+    toString() {
+        return `<FuncValue ${this.f}>`;
+    }
 }
 
 class EnvValue extends Value {
@@ -372,6 +413,10 @@ class EnvValue extends Value {
      */
     constructor(outer) {
         this.outer = outer;
+    }
+
+    toString() {
+        return `<EnvValue outer: ${this.outer}>`;
     }
 }
 
@@ -390,6 +435,10 @@ class ClosureValue extends Value {
         this.ismacro = ismacro;
         this.meta = meta;
     }
+
+    toString() {
+        return `<ClosureValue ${this}>`;
+    }
 }
 
 class AtomValue extends Value {
@@ -399,6 +448,10 @@ class AtomValue extends Value {
     constructor(ref) {
         this.ref = ref;
     }
+
+    toString() {
+        return `<AtomValue ${ref}>`;
+    }
 }
 
 class ExceptionValue extends Value {
@@ -407,6 +460,10 @@ class ExceptionValue extends Value {
      */
     constructor(info) {
         this.info = info;
+    }
+
+    toString() {
+        return `<ExceptionValue ${this.info}>`;
     }
 }
 
@@ -565,11 +622,11 @@ class Parser {
             let f2 = this._readForm();
             return new ListValue([s, f2, f]);
         } else if (t.symbol === ")") {
-            //TODO:
+            //TODO: report error
         } else if (t.symbol === "]") {
-            //TODO:
+            //TODO: report error
         } else if (t.symbol === "}") {
-            //TODO:
+            //TODO: report error
         } else {
             return this._readAtom();
         }
