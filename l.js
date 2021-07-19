@@ -668,9 +668,9 @@ function readStr(src) {
 }
 
 function test() {
-    let s = new Scanner(true);
-    let src = "(+ 1 2)";
-    let tokens = s.scan(src);
+    let p = new Parser();
+    let ast = p.parse("(+ 1 2)");
+    console.log(ast);
 }
 
 test();
