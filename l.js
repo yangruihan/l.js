@@ -283,20 +283,20 @@ class Value {
     static None = new Value();
 
     static isMacro(v) {
-        return v instanceof ClosureValue && v.ismacro;
+        return v instanceof FuncValue && v.ismacro;
     }
 
     static isMacroCall(v, env) {
-        if (!(v instanceof ListValue) || !(v.items[0] instanceof SymbolValue)) {
+        if (!(v instanceof ListValue) || !(v.value[0] instanceof SymbolValue)) {
             return false;
         }
-        let f = env.get(v.items[0]);
+        let f = env.get(v.value[0]);
         return Value.isMacro(f);
     }
 
     static isPair(v) {
         return (v instanceof ListValue || v instanceof VectorValue)
-                && v.items.length > 0;
+                && v.value.length > 0;
     }
 }
 
@@ -325,15 +325,18 @@ class BoolValue extends Value {
 }
 
 class NumValue extends Value {
+    static Zero = new NumValue(0);
+    static One = new NumValue(1);
+
     /**
      * @param {number} num
      */
     constructor(num) {
         super();
-        this.num = num;
+        this.value = num;
     }
     toString() {
-        return `<NumValue ${this.num}>`;
+        return `<NumValue ${this.value}>`;
     }
 }
 
@@ -343,32 +346,35 @@ class StrValue extends Value {
      */
     constructor(s) {
         super();
-        this.s = s;
+        this.value = s;
     }
 
     toString() {
-        return `<StrValue "${this.s}">`;
+        return `<StrValue "${this.value}">`;
     }
 }
 
 class ListValue extends Value {
     /**
      * @param {Value[]} items
-     * @param {Value} meta
      */
-    constructor(items, meta) {
+    constructor(items) {
         super();
         if (items === undefined) items = [];
-        if (meta === undefined) meta = NilValue.Value;
-        this.items = items;
-        this.meta = meta;
+        this.value = items;
+
+        /**
+         * @type {Value}
+         */
+        this.meta = null;
     }
     toString() {
         let s = "<ListValue (";
-        for (let i = 0; i < this.items.length; i++) {
-            s += `${this.items[i]} `;
+        for (let i = 0; i < this.value.length; i++) {
+            s += `${this.value[i]} `;
         }
         s += ")>";
+        return s;
     }
 }
 
@@ -378,11 +384,11 @@ class SymbolValue extends Value {
      */
     constructor(s) {
         super();
-        this.symbol = s;
+        this.value = s;
     }
 
     toString() {
-        return `<SymbolValue ${this.s}>`;
+        return `<SymbolValue ${this.value}>`;
     }
 }
 
@@ -392,31 +398,34 @@ class KeywordValue extends Value {
      */
     constructor(k) {
         super();
-        this.keyword = k;
+        this.value = k;
     }
 
     toString() {
-        return `<KeywordValue ${this.keyword}>`;
+        return `<KeywordValue ${this.value}>`;
     }
 }
 
 class VectorValue extends Value {
     /**
      * @param {Value[]} items
-     * @param {Value} meta
      */
-    constructor(items, meta) {
+    constructor(items) {
         super();
         if (items === undefined) items = [];
         if (meta === undefined) meta = NilValue.Value;
-        this.items = items;
-        this.meta = meta;
+        this.value = items;
+
+        /**
+         * @type {Value}
+         */
+        this.meta = null;
     }
     
     toString() {
         let s = "<VectorValue [";
-        for (let i = 0; i < this.items.length; i++) {
-            s += `${this.items[i]} `;
+        for (let i = 0; i < this.value.length; i++) {
+            s += `${this.value[i]} `;
         }
         s += "]>";
         return s;
@@ -425,20 +434,23 @@ class VectorValue extends Value {
 
 class MapValue extends Value {
     /**
-     * @param {Value} meta
+     * @param {Value[]} items 
      */
-    constructor(items, meta) {
+    constructor(items) {
         super();
-        if (meta === undefined) meta = NilValue.Value;
-        this.meta = meta;
+
+        /**
+         * @type {Value}
+         */
+        this.meta = null;
 
         /**
          * @type {Map<Value, Value>}
          */
-        this.items = {};
+        this.value = {};
         if (items !== undefined) {
             for (let i = 0; i < items.length; i += 2) {
-                this.items[items[i]] = items[i + 1];
+                this.value[items[i]] = items[i + 1];
             }
         }
     }
@@ -448,13 +460,13 @@ class MapValue extends Value {
      * @param {Value} value 
      */
     set(key,value) {
-        this.items[key] = value;
+        this.value[key] = value;
     }
 
     toString() {
         let s = "<MapValue {";
-        for (const key in this.items) {
-            s += `[${key.toString()}: ${this.items[key].toString()}] `;
+        for (const key in this.value) {
+            s += `[${key.toString()}: ${this.value[key].toString()}] `;
         }
         s += "}>"
         return s;
@@ -464,16 +476,17 @@ class MapValue extends Value {
 class FuncValue extends Value {
     /**
      * @param {Function} f
-     * @param {Value} meta
      */
-    constructor(f, meta) {
+    constructor(f) {
         super();
-        if (meta === undefined)
-            meta = null;
-
-        this.f = f;
+        
+        this.value = f;
         this.ismacro = false;
-        this.meta = meta;
+
+        /**
+         * @type {Value}
+         */
+        this.meta = null;
     }
 
     /**
@@ -481,13 +494,13 @@ class FuncValue extends Value {
      * @returns {FuncValue}
      */
     clone(v) {
-        let f = new FuncValue(v.f);
+        let f = new FuncValue(v.value);
         f.ismacro = false;
         return f;
     }
 
     toString() {
-        return `<FuncValue ${this.f}>`;
+        return `<FuncValue ${this.value}>`;
     }
 }
 
@@ -501,12 +514,12 @@ class EnvValue extends Value {
         super();
         if (outer === undefined) outer = null;
         this.outer = outer;
-        this.data = {};
+        this.value = {};
 
         if (binds !== undefined && exprs !== undefined) {
             for (let i = 0; i < binds.length; i++) {
                 let k = binds[i];
-                if (k.symbol === "&") {
+                if (k.value === "&") {
                     let vars = [];
                     for (let j = i; j < exprs.length; j++) {
                         vars.push(exprs[j]);
@@ -530,7 +543,7 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     set(s, v) {
-        this.data[s.symbol] = v;
+        this.value[s.value] = v;
         return v;
     }
 
@@ -539,10 +552,10 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     find(symbol) {
-        let ret = this.data[symbol.symbol];
+        let ret = this.value[symbol.value];
         let o = this.outer;
         while (ret === undefined && o !== null) {
-            ret = o.data[symbol.symbol];
+            ret = o.value[symbol.value];
             o = o.outer;
         }
         return ret !== undefined ? ret : NilValue.Value;
@@ -563,11 +576,11 @@ class AtomValue extends Value {
      */
     constructor(ref) {
         super();
-        this.ref = ref;
+        this.value = ref;
     }
 
     toString() {
-        return `<AtomValue ${ref}>`;
+        return `<AtomValue ${this.value}>`;
     }
 }
 
@@ -577,14 +590,17 @@ class ExceptionValue extends Value {
      */
     constructor(info) {
         super();
-        this.info = info;
+        this.value = info;
     }
 
     toString() {
-        return `<ExceptionValue ${this.info}>`;
+        return `<ExceptionValue ${this.value}>`;
     }
 }
 
+/**
+ * parser
+ */
 class Parser {
     constructor() {
         /**
@@ -754,7 +770,7 @@ class Parser {
      * @returns {Value}
      */
     parse(src) {
-        let scanner = new Scanner(true);
+        let scanner = new Scanner(false);
         let tokens = scanner.scan(src);
         this.reader = new Reader(tokens);
         let ret = this._readForm();
@@ -763,6 +779,9 @@ class Parser {
     }
 }
 
+/**
+ * interpreter
+ */
 class Interpreter {
     constructor() {
         this.env = new EnvValue();
@@ -775,8 +794,8 @@ class Interpreter {
      */
     macroExpand(v, env) {
         while (Value.isMacroCall(v, env)) {
-            let f = env.get(v.items[0]);
-            v = f.apply(null, v.items.splice(1));
+            let f = env.get(v.value[0]);
+            v = f.apply(null, v.value.splice(1));
         }
         return v;
     }
@@ -792,8 +811,8 @@ class Interpreter {
             return ret;
         } else if (v instanceof ListValue) {
             let ret = new ListValue();
-            for (let i = 0; i < v.items.length; i++) {
-                ret.items.push(this.eval(v.items[i], env));
+            for (let i = 0; i < v.value.length; i++) {
+                ret.value.push(this.eval(v.value[i], env));
             }
             return ret;
         } else {
@@ -818,7 +837,7 @@ class Interpreter {
     eval(v, env) {
         while (true) {
             if (v instanceof ListValue) {
-                if (v.items.length === 0) {
+                if (v.value.length === 0) {
                     return v;
                 } else {
                     v = this.macroExpand(v, env);
@@ -826,20 +845,20 @@ class Interpreter {
                         return this.evalAst(v, env);
                     }
 
-                    let firstValue = v.items[0].symbol;
+                    let firstValue = v.value[0].value;
                     if (firstValue === "def!") {
-                        return env.set(v.items[1], this.eval(v.items[2], env));
+                        return env.set(v.value[1], this.eval(v.value[2], env));
                     } else if (firstValue === "defmacro!") {
-                        let f = this.eval(v.items[2], env);
+                        let f = this.eval(v.value[2], env);
                         let newF = f.clone();
                         newF.ismacro = true;
-                        return env.set(v.items[1], newF);
+                        return env.set(v.value[1], newF);
                     } else if (firstValue === "let*") {
                         let newEnv = new EnvValue(env)
                         /**
                          * @type {Value[]}
                          */
-                        let binds = v.items[1].items
+                        let binds = v.value[1].value
                         
                         for (let i = 0; i < binds.length; i+=2) {
                             let k = binds[i];
@@ -847,77 +866,77 @@ class Interpreter {
                             newEnv.set(k,v);
                         }
 
-                        v = v.items[2];
+                        v = v.value[2];
                         env = newEnv;
                     } else if (firstValue === "do") {
-                        let seq = v.items.splice(1);
+                        let seq = v.value.splice(1);
                         if (seq.length > 0) {
                             this.evalAst(new ListValue(seq), env);
                         }
-                        v = v.items[v.items.length - 1];
+                        v = v.value[v.value.length - 1];
                     } else if (firstValue === "if") {
-                        let cond = this.eval(v.items[1], env);
+                        let cond = this.eval(v.value[1], env);
                         if (cond.value) {
-                            v = v.items[2];
+                            v = v.value[2];
                         } else {
-                            v = v.items[3] === undefined ? NilValue.Value : v.items[3];
+                            v = v.value[3] === undefined ? NilValue.Value : v.value[3];
                         }
                     } else if (firstValue === "fn*") {
                         return new FuncValue(function(...args) {
-                            let newEnv = new EnvValue(env, v.items[1].items, args);
-                            return this.eval(v.items[2], newEnv);
+                            let newEnv = new EnvValue(env, v.value[1].value, args);
+                            return this.eval(v.value[2], newEnv);
                         });
                     } else if (firstValue === "quote") {
-                        return v.items[1];
+                        return v.value[1];
                     } else if (firstValue === "quasiquote") {
                         let quasiquote = null;
                         quasiquote = function(a) {
                             if (!Value.isPair(a)) {
                                 return new ListValue([SymbolValue("quote"), a]);
                             } else {
-                                let firstValue =a.items[0];
+                                let firstValue =a.value[0];
                                 if (firstValue instanceof SymbolValue
-                                    && firstValue.symbol === "unquote") {
-                                        return a.items[1];
+                                    && firstValue.value === "unquote") {
+                                        return a.value[1];
                                 } else if (Value.isPair(firstValue) 
-                                            && firstValue.items[0] instanceof SymbolValue
-                                            && firstValue.items[0].symbol === "splice-unquote") {
+                                            && firstValue.value[0] instanceof SymbolValue
+                                            && firstValue.value[0].value === "splice-unquote") {
                                     return new ListValue([
                                         new SymbolValue("concat"),
-                                        firstValue.items[1],
-                                        quasiquote(new ListValue(a.items.splice(1)))
+                                        firstValue.value[1],
+                                        quasiquote(new ListValue(a.value.splice(1)))
                                     ]);
                                 } else {
                                     return new ListValue([
                                         new SymbolValue("cons"),
-                                        quasiquote(a.items[0]),
-                                        quasiquote(new ListValue(a.items.splice(1)))
+                                        quasiquote(a.value[0]),
+                                        quasiquote(new ListValue(a.value.splice(1)))
                                     ]);
                                 }
                             }
                         };
-                        v = quasiquote(v.items[1]);
+                        v = quasiquote(v.value[1]);
                     } else if (firstValue === "macroexpand") {
-                        return this.macroExpand(v.items[1], env);
+                        return this.macroExpand(v.value[1], env);
                     } else if (firstValue === "try*") {
                         // TODO: exception
                     } else {
                         let ret = this.evalAst(v, env);
-                        let func = ret.items[0];
-                        let params = ret.items.splice(1);
-                        return func.apply(null, params);
+                        let func = ret.value[0];
+                        let params = ret.value.splice(1);
+                        return func.value.apply(null, params);
                     }
                 }
             } else if (v instanceof VectorValue) {
                 let newV = [];
-                for (let i = 0; i < v.items.length; i++) {
-                    newV.push(this.eval(v.items[i], env));
+                for (let i = 0; i < v.value.length; i++) {
+                    newV.push(this.eval(v.value[i], env));
                 }
                 return new VectorValue(newV);
             } else if (v instanceof MapValue) {
                 let newMap = new MapValue();
-                for (const key in v.items) {
-                    newMap.set(key, this.eval(v.items[key], env));
+                for (const key in v.value) {
+                    newMap.set(key, this.eval(v.value[key], env));
                 }
                 return newMap;
             } else {
@@ -940,15 +959,101 @@ class Interpreter {
      */
     repl(src) {
         let ast = this.read(src);
-        console.log(ast);
         let ret = this.eval(ast, this.env);
         return this.print(ret);
     }
+
+    /**
+     * @param {[][]} lib 
+     */
+    registerLib(lib) {
+        for (let i = 0; i < lib.length; i++) {
+            this.env.set(new SymbolValue(lib[i][0]), 
+                         new FuncValue(lib[i][1]));
+        }
+    }
 }
+
+// ------------------------------
+// ---------- Core lib ----------
+// ------------------------------
+class CoreLib {
+    static add(a, b) {
+        if (a instanceof NumValue && b instanceof NumValue)
+            return new NumValue(a.value + b.value);
+        else if (a instanceof StrValue || b instanceof StrValue)
+            return new StrValue(a.value + b.value);
+    }
+
+    static dec(a, b) {
+        return new NumValue(a.value - b.value);
+    }
+
+    static mul(a, b) {
+        return new NumValue(a.value * b.value);
+    }
+
+    static div(a, b) {
+        return new NumValue(a.value / b.value);
+    }
+
+    static equal(a, b) {
+        return a === b ? BoolValue.True : BoolValue.False;
+    }
+
+    static less(a, b) {
+        return a.value < b.value ? BoolValue.True : BoolValue.False;
+    }
+
+    static lessEq(a, b) {
+        return a.value <= b.value ? BoolValue.True : BoolValue.False;
+    }
+
+    static great(a, b) {
+        return a.value > b.value ? BoolValue.True : BoolValue.False;
+    }
+
+    static greatEq(a, b) {
+        return a.value >= b.value ? BoolValue.True : BoolValue.False;
+    }
+
+    static list(...args) {
+        return new ListValue(args);
+    }
+
+    static listCheck(l) {
+        return l instanceof ListValue ? BoolValue.True : BoolValue.False;
+    }
+
+    static emptyCheck(l) {
+        return l instanceof ListValue && l.value.length == 0 ? BoolValue.True : BoolValue.False;
+    }
+
+    static count(l) {
+        return l instanceof ListValue ? new NumValue(l.value.length) : NumValue.Zero;
+    }
+}
+
+const coreLib = [
+    ["+", CoreLib.add],
+    ["-", CoreLib.dec],
+    ["*", CoreLib.mul],
+    ["/", CoreLib.div],
+    ["=", CoreLib.equal],
+    ["<", CoreLib.less],
+    ["<=", CoreLib.lessEq],
+    [">", CoreLib.great],
+    [">=", CoreLib.greatEq],
+    ["list", CoreLib.list],
+    ["list?", CoreLib.listCheck],
+    ["empty?", CoreLib.emptyCheck],
+    ["count", CoreLib.count],
+];
 
 function test() {
     let vm = new Interpreter();
-    let src = "(+ 1 2)";
+    vm.registerLib(coreLib);
+    let src = "(list 1 2 3)";
     console.log(vm.repl(src));
 }
 
