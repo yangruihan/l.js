@@ -1,7 +1,7 @@
 /**
  * token
  */
- class Token {
+class Token {
     /**
      * @param {string} symbol
      * @param {number} line
@@ -258,8 +258,7 @@ class Reader {
  * printer
  */
 class Printer {
-    constructor() {
-    }
+    constructor() {}
 
     /**
      * @param {Value} v
@@ -267,8 +266,7 @@ class Printer {
      * @returns {string}
      */
     printStr(v, readably) {
-        if (readably === undefined)
-            readably = false;
+        if (readably === undefined) readably = false;
 
         // TODO: finish this function
 
@@ -295,8 +293,10 @@ class Value {
     }
 
     static isPair(v) {
-        return (v instanceof ListValue || v instanceof VectorValue)
-                && v.value.length > 0;
+        return (
+            (v instanceof ListValue || v instanceof VectorValue) &&
+            v.value.length > 0
+        );
     }
 }
 
@@ -421,7 +421,7 @@ class VectorValue extends Value {
          */
         this.meta = null;
     }
-    
+
     toString() {
         let s = "<VectorValue [";
         for (let i = 0; i < this.value.length; i++) {
@@ -434,7 +434,7 @@ class VectorValue extends Value {
 
 class MapValue extends Value {
     /**
-     * @param {Value[]} items 
+     * @param {Value[]} items
      */
     constructor(items) {
         super();
@@ -456,10 +456,10 @@ class MapValue extends Value {
     }
 
     /**
-     * @param {Value} key 
-     * @param {Value} value 
+     * @param {Value} key
+     * @param {Value} value
      */
-    set(key,value) {
+    set(key, value) {
         this.value[key] = value;
     }
 
@@ -468,7 +468,7 @@ class MapValue extends Value {
         for (const key in this.value) {
             s += `[${key.toString()}: ${this.value[key].toString()}] `;
         }
-        s += "}>"
+        s += "}>";
         return s;
     }
 }
@@ -479,7 +479,7 @@ class FuncValue extends Value {
      */
     constructor(f) {
         super();
-        
+
         this.value = f;
         this.ismacro = false;
 
@@ -801,8 +801,8 @@ class Interpreter {
     }
 
     /**
-     * @param {Value} v 
-     * @param {EnvValue} env 
+     * @param {Value} v
+     * @param {EnvValue} env
      * @returns {Value}
      */
     evalAst(v, env) {
@@ -854,16 +854,16 @@ class Interpreter {
                         newF.ismacro = true;
                         return env.set(v.value[1], newF);
                     } else if (firstValue === "let*") {
-                        let newEnv = new EnvValue(env)
+                        let newEnv = new EnvValue(env);
                         /**
                          * @type {Value[]}
                          */
-                        let binds = v.value[1].value
-                        
-                        for (let i = 0; i < binds.length; i+=2) {
+                        let binds = v.value[1].value;
+
+                        for (let i = 0; i < binds.length; i += 2) {
                             let k = binds[i];
-                            let v = this.eval(binds[i+1], newEnv);
-                            newEnv.set(k,v);
+                            let v = this.eval(binds[i + 1], newEnv);
+                            newEnv.set(k, v);
                         }
 
                         v = v.value[2];
@@ -879,38 +879,55 @@ class Interpreter {
                         if (cond.value) {
                             v = v.value[2];
                         } else {
-                            v = v.value[3] === undefined ? NilValue.Value : v.value[3];
+                            v =
+                                v.value[3] === undefined
+                                    ? NilValue.Value
+                                    : v.value[3];
                         }
                     } else if (firstValue === "fn*") {
-                        return new FuncValue(function(...args) {
-                            let newEnv = new EnvValue(env, v.value[1].value, args);
+                        return new FuncValue(function (...args) {
+                            let newEnv = new EnvValue(
+                                env,
+                                v.value[1].value,
+                                args
+                            );
                             return this.eval(v.value[2], newEnv);
                         });
                     } else if (firstValue === "quote") {
                         return v.value[1];
                     } else if (firstValue === "quasiquote") {
                         let quasiquote = null;
-                        quasiquote = function(a) {
+                        quasiquote = function (a) {
                             if (!Value.isPair(a)) {
                                 return new ListValue([SymbolValue("quote"), a]);
                             } else {
-                                let firstValue =a.value[0];
-                                if (firstValue instanceof SymbolValue
-                                    && firstValue.value === "unquote") {
-                                        return a.value[1];
-                                } else if (Value.isPair(firstValue) 
-                                            && firstValue.value[0] instanceof SymbolValue
-                                            && firstValue.value[0].value === "splice-unquote") {
+                                let firstValue = a.value[0];
+                                if (
+                                    firstValue instanceof SymbolValue &&
+                                    firstValue.value === "unquote"
+                                ) {
+                                    return a.value[1];
+                                } else if (
+                                    Value.isPair(firstValue) &&
+                                    firstValue.value[0] instanceof
+                                        SymbolValue &&
+                                    firstValue.value[0].value ===
+                                        "splice-unquote"
+                                ) {
                                     return new ListValue([
                                         new SymbolValue("concat"),
                                         firstValue.value[1],
-                                        quasiquote(new ListValue(a.value.splice(1)))
+                                        quasiquote(
+                                            new ListValue(a.value.splice(1))
+                                        )
                                     ]);
                                 } else {
                                     return new ListValue([
                                         new SymbolValue("cons"),
                                         quasiquote(a.value[0]),
-                                        quasiquote(new ListValue(a.value.splice(1)))
+                                        quasiquote(
+                                            new ListValue(a.value.splice(1))
+                                        )
                                     ]);
                                 }
                             }
@@ -964,12 +981,11 @@ class Interpreter {
     }
 
     /**
-     * @param {[][]} lib 
+     * @param {[][]} lib
      */
     registerLib(lib) {
         for (let i = 0; i < lib.length; i++) {
-            this.env.set(new SymbolValue(lib[i][0]), 
-                         new FuncValue(lib[i][1]));
+            this.env.set(new SymbolValue(lib[i][0]), new FuncValue(lib[i][1]));
         }
     }
 }
@@ -1026,11 +1042,15 @@ class CoreLib {
     }
 
     static emptyCheck(l) {
-        return l instanceof ListValue && l.value.length == 0 ? BoolValue.True : BoolValue.False;
+        return l instanceof ListValue && l.value.length == 0
+            ? BoolValue.True
+            : BoolValue.False;
     }
 
     static count(l) {
-        return l instanceof ListValue ? new NumValue(l.value.length) : NumValue.Zero;
+        return l instanceof ListValue
+            ? new NumValue(l.value.length)
+            : NumValue.Zero;
     }
 }
 
@@ -1047,7 +1067,7 @@ const coreLib = [
     ["list", CoreLib.list],
     ["list?", CoreLib.listCheck],
     ["empty?", CoreLib.emptyCheck],
-    ["count", CoreLib.count],
+    ["count", CoreLib.count]
 ];
 
 function test() {
