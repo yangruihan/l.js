@@ -1,18 +1,20 @@
+//#region Base Utils
+
 // ------------------------------
 // ---------- Base Utils --------
 // ------------------------------
 
 /**
- * @param {Array} a 
- * @param {number} idx 
- * @param {any} item 
+ * @param {Array} a
+ * @param {number} idx
+ * @param {any} item
  * @returns {Array}
  */
 function insert(a, idx, item) {
     // clone array
     let i = a.length;
     let ret = Array(i);
-    while(i--) ret[i] = a[i];
+    while (i--) ret[i] = a[i];
 
     // insert item
     ret.splice(idx, 0, item);
@@ -22,6 +24,10 @@ function insert(a, idx, item) {
 // ------------------------------
 // ---------- Base Utils End ----
 // ------------------------------
+
+//#endregion
+
+//#region Scanner
 
 /**
  * token
@@ -283,7 +289,7 @@ class Reader {
  * printer
  */
 class Printer {
-    constructor() {}
+    constructor() { }
 
     /**
      * @param {Value} v
@@ -299,16 +305,242 @@ class Printer {
     }
 }
 
+//#endregion
+
+//#region Value
+
 /**
  * value
  */
 class Value {
     static None = new Value();
 
+    /**
+     * @param {boolean} b
+     * @returns {BoolValue}
+     */
+    static bool(b) {
+        return b ? BoolValue.True : BoolValue.False;
+    }
+
+    /**
+     * @param {number} n
+     * @returns {NumValue}
+     */
+    static num(n) {
+        return new NumValue(n);
+    }
+
+    /**
+     * @param {string} s
+     * @returns {SymbolValue}
+     */
+    static symbol(s) {
+        return new SymbolValue(s);
+    }
+
+    /**
+     * @param {string} s
+     * @returns {StrValue}
+     */
+    static string(s) {
+        return new StrValue(s);
+    }
+
+    /**
+     * @param {Value[]} l
+     * @returns {ListValue}
+     */
+    static list(l) {
+        return new ListValue(l);
+    }
+
+    /**
+     * @param {Function} f
+     * @returns {FuncValue}
+     */
+    static func(f) {
+        return new FuncValue(f);
+    }
+
+    /**
+     * @param {Value[]} v
+     * @returns {VectorValue}
+     */
+    static vector(v) {
+        return new VectorValue(v);
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {KeywordValue}
+     */
+    static keyword(v) {
+        return new KeywordValue(v);
+    }
+
+    /**
+     * @param {Value[]} v
+     * @returns {MapValue}
+     */
+    static map(v) {
+        return new MapValue(v);
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {AtomValue}
+     */
+    static atom(v) {
+        return new AtomValue(v);
+    }
+
+    /**
+     * @param {string} v
+     * @returns {ExceptionValue}
+     */
+    static exception(v) {
+        return new ExceptionValue(v);
+    }
+
+    /**
+     * @param {EnvValue} [outer]
+     * @param {Value[]} [binds]
+     * @param {Value[]} [exprs]
+     * @returns {EnvValue}
+     */
+    static env(outer, binds, exprs) {
+        return new EnvValue(outer, binds, exprs);
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isNil(v) {
+        return v instanceof NilValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isBool(v) {
+        return v instanceof BoolValue;
+    }
+
+    /**
+     * @param {Value} n
+     * @returns {boolean}
+     */
+    static isNum(n) {
+        return n instanceof NumValue;
+    }
+
+    /**
+    * @param {Value} v
+    * @returns {boolean}
+    */
+    static isList(v) {
+        return v instanceof ListValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @param {string} name
+     * @returns {boolean}
+     */
+    static isSymbol(v, name) {
+        if (name === undefined)
+            return v instanceof SymbolValue;
+        return v instanceof SymbolValue && v.value === name;
+    }
+
+    /**
+     * @param {Value} s
+     * @returns {boolean}
+     */
+    static isString(s) {
+        return s instanceof StrValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isKeyword(v) {
+        return v instanceof KeywordValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isVector(v) {
+        return v instanceof VectorValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isFunc(v) {
+        return v instanceof FuncValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
     static isMacro(v) {
         return v instanceof FuncValue && v.ismacro;
     }
 
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isMap(v) {
+        return v instanceof MapValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isAtom(v) {
+        return v instanceof AtomValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isException(v) {
+        return v instanceof ExceptionValue;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isFalse(v) {
+        return this.isNil(v) || (this.isBool(v) && !v.value);
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    static isTrue(v) {
+        return !this.isFalse(v);
+    }
+
+    /**
+     * @param {Value} v
+     * @param {EnvValue} env
+     * @returns {boolean}
+     */
     static isMacroCall(v, env) {
         if (!(v instanceof ListValue) || !(v.value[0] instanceof SymbolValue)) {
             return false;
@@ -317,11 +549,54 @@ class Value {
         return Value.isMacro(f);
     }
 
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
     static isPair(v) {
         return (
             (v instanceof ListValue || v instanceof VectorValue) &&
             v.value.length > 0
         );
+    }
+
+    /**
+     * @param {Value} f
+     * @returns {boolean}
+     */
+    static isRealFunc(f) {
+        return f instanceof FuncValue && !f.ismacro;
+    }
+
+    /**
+     * @param {Value} v
+     * @returns {boolean}
+     */
+    equals(v) {
+        if (v === undefined || v === null)
+            return false;
+
+        if (this.constructor !== v.constructor)
+            return false;
+
+        if (Value.isList(this) || Value.isVector(this)) {
+            if (this.value.length !== v.value.length)
+                return false;
+
+            for (let i = 0; i < this.value.length; i++) {
+                if (!this.value[i].equals(v.value[i]))
+                    return false;
+            }
+
+            return true;
+        } else if (Value.isMap(this)) {
+            for (const k in this.value) {
+                if (!this.value[k].equals(v.value[k]))
+                    return false;
+            }
+        }
+
+        return v.value === v.value;
     }
 }
 
@@ -365,6 +640,7 @@ class NumValue extends Value {
         super();
         this.value = num;
     }
+
     toString() {
         return `<NumValue ${this.value}>`;
     }
@@ -402,7 +678,7 @@ class ListValue extends Value {
         /**
          * @type {Value}
          */
-        this.meta = null;
+        this.meta = Value.Nil;
     }
 
     toString() {
@@ -446,19 +722,20 @@ class KeywordValue extends Value {
 }
 
 class VectorValue extends Value {
+    static Empty = new VectorValue();
+
     /**
      * @param {Value[]} items
      */
     constructor(items) {
         super();
         if (items === undefined) items = [];
-        if (meta === undefined) meta = NilValue.Value;
         this.value = items;
 
         /**
          * @type {Value}
          */
-        this.meta = null;
+        this.meta = Value.Nil;
     }
 
     toString() {
@@ -472,6 +749,8 @@ class VectorValue extends Value {
 }
 
 class MapValue extends Value {
+    static Empty = new MapValue();
+
     /**
      * @param {Value[]} items
      */
@@ -481,7 +760,7 @@ class MapValue extends Value {
         /**
          * @type {Value}
          */
-        this.meta = null;
+        this.meta = Value.Nil;
 
         /**
          * @type {Map<Value, Value>}
@@ -503,7 +782,7 @@ class MapValue extends Value {
     }
 
     /**
-     * @param {Value} key 
+     * @param {Value} key
      * @returns {Value}
      */
     get(key) {
@@ -544,15 +823,14 @@ class FuncValue extends Value {
         /**
          * @type {Value}
          */
-        this.meta = null;
+        this.meta = Value.Nil;
     }
 
     /**
-     * @param {FuncValue} v
      * @returns {FuncValue}
      */
-    clone(v) {
-        let f = new FuncValue(v.value);
+    clone() {
+        let f = new FuncValue(this.value);
         f.ismacro = false;
         return f;
     }
@@ -656,6 +934,14 @@ class ExceptionValue extends Value {
     }
 }
 
+Value.Nil = NilValue.Value;
+Value.True = BoolValue.True;
+Value.False = BoolValue.False;
+
+//#endregion 
+
+//#region Parser
+
 /**
  * parser
  */
@@ -693,8 +979,9 @@ class Parser {
         }
 
         r.next(); // consume ")"
-        return new ListValue(items);
+        return Value.list(items);
     }
+
     /**
      * @returns {Value}
      */
@@ -708,7 +995,7 @@ class Parser {
         // check empty vector
         if (r.peek().symbol === "]") {
             r.next();
-            return new VectorValue();
+            return VectorValue.Empty;
         }
 
         let items = [];
@@ -721,7 +1008,7 @@ class Parser {
         }
 
         r.next(); // consume "]"
-        return new VectorValue(items);
+        return Value.vector(items);
     }
 
     /**
@@ -737,7 +1024,7 @@ class Parser {
         // check empty map
         if (r.peek().symbol === "}") {
             r.next();
-            return new MapValue();
+            return MapValue.Empty;
         }
         let items = [];
         while (r.peek().symbol !== "}") {
@@ -748,18 +1035,20 @@ class Parser {
             items.push(v);
         }
         r.next(); // consume "}"
-        return new MapValue(items);
+        return Value.map(items);
     }
+
     /**
      * @param {string} symbol
      */
     _expand(symbol) {
         let r = this.reader;
         r.next();
-        let s = new SymbolValue(symbol);
+        let s = Value.symbol(symbol);
         let form = this._readForm();
-        return new ListValue([s, form]);
+        return Value.list([s, form]);
     }
+
     /**
      * @returns {Value}
      */
@@ -773,15 +1062,16 @@ class Parser {
         } else if (t.symbol === "nil") {
             return NilValue.Value;
         } else if (t.symbol.startsWith(":")) {
-            return new KeywordValue(t.symbol);
+            return Value.keyword(t.symbol);
         } else if (t.symbol.startsWith('"')) {
-            return new StrValue(t.symbol.substring(1, t.symbol.length - 1));
+            return Value.string(t.symbol.substring(1, t.symbol.length - 1));
         } else if (!isNaN(t.symbol)) {
-            return new NumValue(Number(t.symbol));
+            return Value.num(Number(t.symbol));
         } else {
-            return new SymbolValue(t.symbol);
+            return Value.symbol(t.symbol);
         }
     }
+
     /**
      * @returns {Value}
      */
@@ -809,10 +1099,10 @@ class Parser {
         } else if (t.symbol === "^") {
             let r = this.reader;
             r.next();
-            let s = new SymbolValue("with-meta");
+            let s = Value.symbol("with-meta");
             let f = this._readForm();
             let f2 = this._readForm();
-            return new ListValue([s, f2, f]);
+            return Value.list([s, f2, f]);
         } else if (t.symbol === ")") {
             //TODO: report error
         } else if (t.symbol === "]") {
@@ -823,6 +1113,7 @@ class Parser {
             return this._readAtom();
         }
     }
+
     /**
      * @param {string} src
      * @returns {Value}
@@ -837,12 +1128,16 @@ class Parser {
     }
 }
 
+//#endregion
+
+//#region Interpreter
+
 /**
  * interpreter
  */
 class Interpreter {
     constructor() {
-        this.env = new EnvValue();
+        this.env = Value.env();
     }
 
     /**
@@ -864,15 +1159,15 @@ class Interpreter {
      * @returns {Value}
      */
     evalAst(v, env) {
-        if (v instanceof SymbolValue) {
+        if (Value.isSymbol(v)) {
             let ret = env.get(v);
             return ret;
-        } else if (v instanceof ListValue) {
-            let ret = new ListValue();
+        } else if (Value.isList(v)) {
+            let ret = [];
             for (let i = 0; i < v.value.length; i++) {
-                ret.value.push(this.eval(v.value[i], env));
+                ret.push(this.eval(v.value[i], env));
             }
-            return ret;
+            return Value.list(ret);
         } else {
             return v;
         }
@@ -894,12 +1189,12 @@ class Interpreter {
      */
     eval(v, env) {
         while (true) {
-            if (v instanceof ListValue) {
+            if (Value.isList(v)) {
                 if (v.value.length === 0) {
                     return v;
                 } else {
                     v = this.macroExpand(v, env);
-                    if (!(v instanceof ListValue)) {
+                    if (!Value.isList(v)) {
                         return this.evalAst(v, env);
                     }
 
@@ -912,7 +1207,7 @@ class Interpreter {
                         newF.ismacro = true;
                         return env.set(v.value[1], newF);
                     } else if (firstValue === "let*") {
-                        let newEnv = new EnvValue(env);
+                        let newEnv = Value.env(env);
                         /**
                          * @type {Value[]}
                          */
@@ -927,24 +1222,23 @@ class Interpreter {
                         v = v.value[2];
                         env = newEnv;
                     } else if (firstValue === "do") {
-                        let seq = v.value.splice(1);
+                        let seq = v.value.slice(0, -1);
                         if (seq.length > 0) {
-                            this.evalAst(new ListValue(seq), env);
+                            this.evalAst(Value.list(seq), env);
                         }
                         v = v.value[v.value.length - 1];
                     } else if (firstValue === "if") {
                         let cond = this.eval(v.value[1], env);
-                        if (cond.value) {
+                        if (Value.isTrue(cond)) {
                             v = v.value[2];
                         } else {
-                            v =
-                                v.value[3] === undefined
-                                    ? NilValue.Value
-                                    : v.value[3];
+                            v = v.value[3] === undefined
+                                ? NilValue.Value
+                                : v.value[3];
                         }
                     } else if (firstValue === "fn*") {
-                        return new FuncValue(function (...args) {
-                            let newEnv = new EnvValue(
+                        return Value.func(function (...args) {
+                            let newEnv = Value.env(
                                 env,
                                 v.value[1].value,
                                 args
@@ -957,34 +1251,27 @@ class Interpreter {
                         let quasiquote = null;
                         quasiquote = function (a) {
                             if (!Value.isPair(a)) {
-                                return new ListValue([SymbolValue("quote"), a]);
+                                return Value.list([Value.symbol("quote"), a]);
                             } else {
                                 let firstValue = a.value[0];
-                                if (
-                                    firstValue instanceof SymbolValue &&
-                                    firstValue.value === "unquote"
-                                ) {
+                                if (Value.isSymbol(firstValue, "unquote")) {
                                     return a.value[1];
                                 } else if (
-                                    Value.isPair(firstValue) &&
-                                    firstValue.value[0] instanceof
-                                        SymbolValue &&
-                                    firstValue.value[0].value ===
-                                        "splice-unquote"
-                                ) {
-                                    return new ListValue([
-                                        new SymbolValue("concat"),
+                                    Value.isPair(firstValue)
+                                    && Value.isSymbol(firstValue.value[0], "splice-unquote")) {
+                                    return Value.list([
+                                        Value.symbol("concat"),
                                         firstValue.value[1],
                                         quasiquote(
-                                            new ListValue(a.value.splice(1))
+                                            Value.list(a.value.splice(1))
                                         )
                                     ]);
                                 } else {
-                                    return new ListValue([
-                                        new SymbolValue("cons"),
+                                    return Value.list([
+                                        Value.symbol("cons"),
                                         quasiquote(a.value[0]),
                                         quasiquote(
-                                            new ListValue(a.value.splice(1))
+                                            Value.list(a.value.splice(1))
                                         )
                                     ]);
                                 }
@@ -999,17 +1286,18 @@ class Interpreter {
                         let ret = this.evalAst(v, env);
                         let func = ret.value[0];
                         let params = ret.value.splice(1);
+                        console.log(func);
                         return func.value.apply(null, params);
                     }
                 }
-            } else if (v instanceof VectorValue) {
+            } else if (Value.isVector(v)) {
                 let newV = [];
                 for (let i = 0; i < v.value.length; i++) {
                     newV.push(this.eval(v.value[i], env));
                 }
-                return new VectorValue(newV);
-            } else if (v instanceof MapValue) {
-                let newMap = new MapValue();
+                return Value.vector(newV);
+            } else if (Value.isMap(v)) {
+                let newMap = Value.map();
                 for (const key in v.value) {
                     newMap.set(key, this.eval(v.value[key], env));
                 }
@@ -1042,10 +1330,14 @@ class Interpreter {
      */
     registerLib(lib) {
         for (let i = 0; i < lib.length; i++) {
-            this.env.set(new SymbolValue(lib[i][0]), new FuncValue(lib[i][1]));
+            this.env.set(Value.symbol(lib[i][0]), Value.func(lib[i][1]));
         }
     }
 }
+
+//#endregion
+
+//#region CoreLib
 
 // ------------------------------
 // ---------- Core lib ----------
@@ -1053,83 +1345,85 @@ class Interpreter {
 class CoreLib {
     static logCallback = null;
     static readFileCallback = null;
+    static outputCallback = null;
+    static inputCallback = null;
 
     static add(a, b) {
         //TODO: check a b type
-        if (a instanceof NumValue && b instanceof NumValue)
-            return new NumValue(a.value + b.value);
-        else if (a instanceof StrValue || b instanceof StrValue)
-            return new StrValue(a.value + b.value);
+        if (Value.isNum(a) && Value.isNum(b))
+            return Value.num(a.value + b.value);
+        else if (Value.isString(a) || Value.isString(b))
+            return Value.string(a.value + b.value);
     }
 
     static dec(a, b) {
         //TODO: check a b type
-        return new NumValue(a.value - b.value);
+        return Value.num(a.value - b.value);
     }
 
     static mul(a, b) {
         //TODO: check a b type
-        return new NumValue(a.value * b.value);
+        return Value.num(a.value * b.value);
     }
 
     static div(a, b) {
         //TODO: check a b type
-        return new NumValue(a.value / b.value);
+        return Value.num(a.value / b.value);
     }
 
     static equal(a, b) {
         //TODO: check a b type
-        return a === b ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(a === b);
     }
 
     static less(a, b) {
         //TODO: check a b type
-        return a.value < b.value ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(a.value < b.value);
     }
 
     static lessEq(a, b) {
         //TODO: check a b type
-        return a.value <= b.value ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(a.value <= b.value);
     }
 
     static great(a, b) {
         //TODO: check a b type
-        return a.value > b.value ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(a.value > b.value);
     }
 
     static greatEq(a, b) {
         //TODO: check a b type
-        return a.value >= b.value ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(a.value >= b.value);
     }
 
     static list(...args) {
-        return new ListValue(args);
+        return Value.list(args);
     }
 
     static listCheck(l) {
-        return l instanceof ListValue ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(Value.isList(l));
     }
 
     static emptyCheck(l) {
-        return l instanceof ListValue && l.value.length == 0
+        return Value.isList(l) && l.value.length == 0
             ? BoolValue.True
             : BoolValue.False;
     }
 
     static count(l) {
-        return l instanceof ListValue
-            ? new NumValue(l.value.length)
+        return Value.isList(1)
+            ? Value.num(l.value.length)
             : NumValue.Zero;
     }
 
     static prstr(...args) {
         if (args.length == 0) return StrValue.Empty;
-        return new StrValue(args.map(v => Printer.printStr(v, true)).join(""));
+        return Value.string(args.map(v => Printer.printStr(v, true)).join(""));
     }
 
     static str(...args) {
         if (args.length == 0) return StrValue.Empty;
-        return new StrValue(args.map(v => Printer.printStr(v, false)).join(""));
+        return Value.string(args.map(v => Printer.printStr(v, false)).join(""));
     }
 
     static prn(...args) {
@@ -1154,15 +1448,15 @@ class CoreLib {
         }
 
         //TODO: catch read file exception
-        return new StrValue(CoreLib.readFileCallback(s.value) + "\n");
+        return Value.string(CoreLib.readFileCallback(s.value) + "\n");
     }
 
     static atom(v) {
-        return new AtomValue(v);
+        return Value.atom(v);
     }
 
     static atomCheck(v) {
-        return v instanceof AtomValue ? BoolValue.True : BoolValue.False;
+        return BoolValue.create(Value.isAtom(v));
     }
 
     static deref(a) {
@@ -1184,18 +1478,18 @@ class CoreLib {
 
     static cons(f, l) {
         //TODO: check type
-        return new ListValue(insert(l.value, 0, f))
+        return Value.list(insert(l.value, 0, f))
     }
 
     static _concat(...args) {
         let ret = []
         for (let i = 0; i < args.length; i++) {
             let v = args[i];
-            if (v instanceof ListValue || v instanceof VectorValue) {
+            if (Value.isList(v) || Value.isVector(v)) {
                 for (const item in v.value) {
                     ret.push(item);
                 }
-            } else if (v instanceof MapValue || !(v instanceof NilValue)) {
+            } else if (Value.isMap(v) || !Value.isNil(v)) {
                 ret.push(v);
             }
         }
@@ -1204,7 +1498,7 @@ class CoreLib {
     }
 
     static concat(...args) {
-        return new ListValue(CoreLib._concat(args));
+        return Value.list(CoreLib._concat(args));
     }
 
     static nth(l, idx) {
@@ -1219,7 +1513,7 @@ class CoreLib {
 
     static first(l) {
         //TODO: check type
-        if (l instanceof NilValue || l.value.length == 0)
+        if (Value.isNil(l) || l.value.length == 0)
             return NilValue.Value;
 
         return l.value[0];
@@ -1227,10 +1521,10 @@ class CoreLib {
 
     static rest(l) {
         //TODO: check type
-        if (l instanceof NilValue || l.value.length <= 1)
+        if (Value.isNil(l) || l.value.length <= 1)
             return ListValue.Empty;
 
-        return new ListValue(l.value.splice(1));
+        return Value.list(l.value.splice(1));
     }
 
     static throw(exc) {
@@ -1246,57 +1540,57 @@ class CoreLib {
     static map(f, ...args) {
         //TODO: check type
         let arr = CoreLib._concat(args);
-        return new ListValue(arr.map(f.value));
+        return Value.list(arr.map(f.value));
     }
 
     static nilCheck(a) {
-        return BoolValue.create(a instanceof NilValue);
+        return BoolValue.create(Value.isNil(a));
     }
 
     static trueCheck(a) {
-        return BoolValue.create(a instanceof BoolValue && a.value);
+        return BoolValue.create(Value.isBool(a) && a.value);
     }
 
     static falseCheck(a) {
-        return BoolValue.create(a instanceof BoolValue && !a.value);
+        return BoolValue.create(Value.isBool(a) && !a.value);
     }
 
     static symbolCheck(a) {
-        return BoolValue.create(a instanceof SymbolValue);
+        return BoolValue.create(Value.isSymbol(a));
     }
 
     static symbol(s) {
         //TODO: check type
-        return new SymbolValue(s.value);
+        return Value.symbol(s.value);
     }
 
     static keyword(s) {
         //TODO: check type
-        return new KeywordValue(s.value);
+        return Value.keyword(s.value);
     }
 
     static keywordCheck(k) {
-        return BoolValue.create(k instanceof KeywordValue);
+        return BoolValue.create(Value.isKeyword(k));
     }
 
     static vector(...args) {
-        return new VectorValue(args);
+        return Value.vector(args);
     }
 
     static vectorCheck(v) {
-        return BoolValue.create(v instanceof VectorValue);
+        return BoolValue.create(Value.isVector(v));
     }
 
     static sequentialCheck(s) {
-        return BoolValue.create(s instanceof ListValue || s instanceof VectorValue);
+        return BoolValue.create(Value.isList(s) || Value.isVector(s));
     }
 
     static hashmap(...args) {
-        return new MapValue(args);
+        return Value.map(args);
     }
 
     static mapCheck(m) {
-        return BoolValue.create(m instanceof MapValue);
+        return BoolValue.create(Value.isMap(m));
     }
 
     static assoc(m, ...args) {
@@ -1318,6 +1612,7 @@ class CoreLib {
     }
 
     static get(m, key) {
+        //TODO: check type
         let ret = m.get(key);
         return ret === undefined ? NilValue.Value : ret;
     }
@@ -1325,31 +1620,192 @@ class CoreLib {
     static containsCheck(m, key) {
         return BoolValue.create(m.get(key) !== undefined);
     }
-}
 
-const coreLib = [
-    ["+", CoreLib.add],
-    ["-", CoreLib.dec],
-    ["*", CoreLib.mul],
-    ["/", CoreLib.div],
-    ["=", CoreLib.equal],
-    ["<", CoreLib.less],
-    ["<=", CoreLib.lessEq],
-    [">", CoreLib.great],
-    [">=", CoreLib.greatEq],
-    ["list", CoreLib.list],
-    ["list?", CoreLib.listCheck],
-    ["empty?", CoreLib.emptyCheck],
-    ["count", CoreLib.count]
-];
+    static keys(m) {
+        //TODO: check type
+        let keys = []
+        for (k in m.value) {
+            keys.push(k);
+        }
+        return Value.list(keys);
+    }
+
+    static vals(m) {
+        //TODO: check type
+        let vals = []
+        for (k in m.value) {
+            vals.push(m.vals[k]);
+        }
+        return Value.list(vals);
+    }
+
+    static readline(s) {
+        //TODO: check type
+        if (this.outputCallback !== null)
+            this.outputCallback(s.value);
+
+        if (this.inputCallback === null)
+            return NilValue.Value;
+
+        return Value.string(this.inputCallback());
+    }
+
+    static timems() {
+        return Value.num(Date.now());
+    }
+
+    static meta(f) {
+        //TODO: check type
+        let ret = f.meta;
+        return ret === undefined ? NilValue.Value : ret;
+    }
+
+    static withmeta(f, v) {
+        //TODO: check type
+        let newF = f.clone();
+        newF.meta = v;
+        return newF;
+    }
+
+    static fnCheck(f) {
+        //TODO: check type
+        return BoolValue.create(Value.isRealFunc(f));
+    }
+
+    static macroCheck(m) {
+        return BoolValue.create(Value.isMacro(m));
+    }
+
+    static stringCheck(s) {
+        return BoolValue.create(Value.isString(s));
+    }
+
+    static numberCheck(n) {
+        return BoolValue.create(Value.isNumber(n));
+    }
+
+    static seq(v) {
+        //TODO: check type
+        if (Value.isNil(v)) {
+            return v;
+        } else if (Value.isList(v)) {
+            if (v.value.length === 0) {
+                return Value.Nil;
+            }
+            return v;
+        } else if (Value.isVector(v)) {
+            if (v.value.length === 0) {
+                return Value.Nil;
+            }
+            return Value.list(v.value.slice());
+        } else if (Value.isString(v)) {
+            if (v.value.length === 0) {
+                return Value.Nil;
+            }
+            let ret = [];
+            for (let i = 0; i < v.value.length; i++) {
+                ret.push(v.value[i]);
+            }
+            return Value.list(ret);
+        }
+    }
+
+    static conj(l, ...args) {
+        //TODO: check type
+        let ret = l.value.slice();
+        if (Value.isList(l)) {
+            for (let i = 0; i < args.length; i++) {
+                insert(ret, 0, args[i]);
+            }
+            return Value.list(ret);
+        } else if (Value.isVector(l)) {
+            for (let i = 0; i < args.length; i++) {
+                insert(ret, 0, args[i]);
+            }
+            return Value.vector(ret);
+        }
+    }
+
+    static libs = [
+        ["+", CoreLib.add],
+        ["-", CoreLib.dec],
+        ["*", CoreLib.mul],
+        ["/", CoreLib.div],
+        ["=", CoreLib.equal],
+        ["<", CoreLib.less],
+        ["<=", CoreLib.lessEq],
+        [">", CoreLib.great],
+        [">=", CoreLib.greatEq],
+        ["list", CoreLib.list],
+        ["list?", CoreLib.listCheck],
+        ["empty?", CoreLib.emptyCheck],
+        ["count", CoreLib.count],
+        ["pr-str", CoreLib.prstr],
+        ["str", CoreLib.str],
+        ["prn", CoreLib.prn],
+        ["println", CoreLib.println],
+        ["read-string", CoreLib.readString],
+        ["slurp", CoreLib.slurp],
+        ["atom", CoreLib.atom],
+        ["atom?", CoreLib.atomCheck],
+        ["deref", CoreLib.deref],
+        ["reset!", CoreLib.reset],
+        ["swap!", CoreLib.swap],
+        ["cons", CoreLib.cons],
+        ["concat", CoreLib.concat],
+        ["nth", CoreLib.nth],
+        ["first", CoreLib.first],
+        ["rest", CoreLib.rest],
+        ["throw", CoreLib.throw],
+        ["apply", CoreLib.apply],
+        ["map", CoreLib.map],
+        ["nil?", CoreLib.nilCheck],
+        ["true?", CoreLib.trueCheck],
+        ["false?", CoreLib.falseCheck],
+        ["symbol?", CoreLib.symbolCheck],
+        ["symbol", CoreLib.symbol],
+        ["keyword", CoreLib.keyword],
+        ["keyword?", CoreLib.keywordCheck],
+        ["vector", CoreLib.vector],
+        ["vector?", CoreLib.vectorCheck],
+        ["sequential?", CoreLib.sequentialCheck],
+        ["hash-map", CoreLib.hashmap],
+        ["map?", CoreLib.mapCheck],
+        ["assoc", CoreLib.assoc],
+        ["dissoc", CoreLib.dissoc],
+        ["get", CoreLib.get],
+        ["contains?", CoreLib.containsCheck],
+        ["keys", CoreLib.keys],
+        ["vals", CoreLib.vals],
+        ["readline", CoreLib.readline],
+        ["time-ms", CoreLib.timems],
+        ["meta", CoreLib.meta],
+        ["with-meta", CoreLib.withmeta],
+        ["fn?", CoreLib.fnCheck],
+        ["macro?", CoreLib.macroCheck],
+        ["string?", CoreLib.stringCheck],
+        ["number?", CoreLib.numberCheck],
+        ["seq", CoreLib.seq],
+        ["conj", CoreLib.conj],
+    ];
+
+    /**
+     * @param {Interpreter} interpreter 
+     */
+    static registerLib(interpreter) {
+        interpreter.registerLib(this.libs);
+    }
+}
 
 // ------------------------------
 // ---------- Core lib End ------
 // ------------------------------
 
+//#endregion
+
 function test() {
     let vm = new Interpreter();
-    vm.registerLib(coreLib);
+    CoreLib.registerLib(vm);
     let src = "(list 1 2 3)";
     console.log(vm.repl(src));
 }
