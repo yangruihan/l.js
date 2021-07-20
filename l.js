@@ -503,6 +503,14 @@ class MapValue extends Value {
     }
 
     /**
+     * @param {Value} key 
+     * @returns {Value}
+     */
+    get(key) {
+        return this.value[key]
+    }
+
+    /**
      * @returns {MapValue}
      */
     clone() {
@@ -1307,6 +1315,15 @@ class CoreLib {
             newM.set(args[i], null);
         }
         return newM;
+    }
+
+    static get(m, key) {
+        let ret = m.get(key);
+        return ret === undefined ? NilValue.Value : ret;
+    }
+
+    static containsCheck(m, key) {
+        return BoolValue.create(m.get(key) !== undefined);
     }
 }
 
