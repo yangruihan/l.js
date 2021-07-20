@@ -1,3 +1,28 @@
+// ------------------------------
+// ---------- Base Utils --------
+// ------------------------------
+
+/**
+ * @param {Array} a 
+ * @param {number} idx 
+ * @param {any} item 
+ * @returns {Array}
+ */
+function insert(a, idx, item) {
+    // clone array
+    let i = a.length;
+    let ret = Array(i);
+    while(i--) ret[i] = a[i];
+
+    // insert item
+    ret.splice(idx, 0, item);
+    return ret;
+}
+
+// ------------------------------
+// ---------- Base Utils End ----
+// ------------------------------
+
 /**
  * token
  */
@@ -265,7 +290,7 @@ class Printer {
      * @param {boolean} readably
      * @returns {string}
      */
-    printStr(v, readably) {
+    static printStr(v, readably) {
         if (readably === undefined) readably = false;
 
         // TODO: finish this function
@@ -311,6 +336,11 @@ class NilValue extends Value {
 class BoolValue extends Value {
     static True = new BoolValue(true);
     static False = new BoolValue(false);
+
+    static create(b) {
+        return b ? this.True : this.False;
+    }
+
     /**
      * @param {boolean} b
      */
@@ -341,6 +371,10 @@ class NumValue extends Value {
 }
 
 class StrValue extends Value {
+    static Empty = new StrValue("");
+
+    //TODO: reuse StrValue instance
+
     /**
      * @param {string} s
      */
@@ -355,6 +389,8 @@ class StrValue extends Value {
 }
 
 class ListValue extends Value {
+    static Empty = new ListValue();
+
     /**
      * @param {Value[]} items
      */
@@ -368,6 +404,7 @@ class ListValue extends Value {
          */
         this.meta = null;
     }
+
     toString() {
         let s = "<ListValue (";
         for (let i = 0; i < this.value.length; i++) {
@@ -379,6 +416,8 @@ class ListValue extends Value {
 }
 
 class SymbolValue extends Value {
+    //TODO: reuse StrValue instance
+
     /**
      * @param {string} s
      */
@@ -622,7 +661,7 @@ class Parser {
         // check empty list
         if (r.peek().symbol === ")") {
             r.next();
-            return new ListValue();
+            return ListValue.Empty;
         }
 
         let items = [];
@@ -967,8 +1006,7 @@ class Interpreter {
      * @returns {string}
      */
     print(v) {
-        let p = new Printer();
-        return p.printStr(v);
+        return Printer.printStr(v);
     }
 
     /**
@@ -994,7 +1032,11 @@ class Interpreter {
 // ---------- Core lib ----------
 // ------------------------------
 class CoreLib {
+    static logCallback = null;
+    static readFileCallback = null;
+
     static add(a, b) {
+        //TODO: check a b type
         if (a instanceof NumValue && b instanceof NumValue)
             return new NumValue(a.value + b.value);
         else if (a instanceof StrValue || b instanceof StrValue)
@@ -1002,34 +1044,42 @@ class CoreLib {
     }
 
     static dec(a, b) {
+        //TODO: check a b type
         return new NumValue(a.value - b.value);
     }
 
     static mul(a, b) {
+        //TODO: check a b type
         return new NumValue(a.value * b.value);
     }
 
     static div(a, b) {
+        //TODO: check a b type
         return new NumValue(a.value / b.value);
     }
 
     static equal(a, b) {
+        //TODO: check a b type
         return a === b ? BoolValue.True : BoolValue.False;
     }
 
     static less(a, b) {
+        //TODO: check a b type
         return a.value < b.value ? BoolValue.True : BoolValue.False;
     }
 
     static lessEq(a, b) {
+        //TODO: check a b type
         return a.value <= b.value ? BoolValue.True : BoolValue.False;
     }
 
     static great(a, b) {
+        //TODO: check a b type
         return a.value > b.value ? BoolValue.True : BoolValue.False;
     }
 
     static greatEq(a, b) {
+        //TODO: check a b type
         return a.value >= b.value ? BoolValue.True : BoolValue.False;
     }
 
@@ -1052,6 +1102,183 @@ class CoreLib {
             ? new NumValue(l.value.length)
             : NumValue.Zero;
     }
+
+    static prstr(...args) {
+        if (args.length == 0) return StrValue.Empty;
+        return new StrValue(args.map(v => Printer.printStr(v, true)).join(""));
+    }
+
+    static str(...args) {
+        if (args.length == 0) return StrValue.Empty;
+        return new StrValue(args.map(v => Printer.printStr(v, false)).join(""));
+    }
+
+    static prn(...args) {
+        CoreLib.logCallback?.apply(null, [CoreLib.prstr(args)]);
+        return NilValue.Value;
+    }
+
+    static println(...args) {
+        CoreLib.logCallback?.apply(null, [CoreLib.str(args)]);
+        return NilValue.Value;
+    }
+
+    static readString(s) {
+        //TODO: catch parse exception
+        let p = new Parser();
+        return p.parse(p);
+    }
+
+    static slurp(s) {
+        if (!CoreLib.readFileCallback) {
+            throw new Error("read file not implement!");
+        }
+
+        //TODO: catch read file exception
+        return new StrValue(CoreLib.readFileCallback(s.value) + "\n");
+    }
+
+    static atom(v) {
+        return new AtomValue(v);
+    }
+
+    static atomCheck(v) {
+        return v instanceof AtomValue ? BoolValue.True : BoolValue.False;
+    }
+
+    static deref(a) {
+        //TODO: check a type
+        return a.value;
+    }
+
+    static reset(a, newV) {
+        //TODO: check a type
+        a.value = newV;
+        return newV;
+    }
+
+    static swap(a, f, ...args) {
+        //TODO: check type
+        a.value = f.value(a.value, args);
+        return a.value;
+    }
+
+    static cons(f, l) {
+        //TODO: check type
+        return new ListValue(insert(l.value, 0, f))
+    }
+
+    static _concat(...args) {
+        let ret = []
+        for (let i = 0; i < args.length; i++) {
+            let v = args[i];
+            if (v instanceof ListValue || v instanceof VectorValue) {
+                for (const item in v.value) {
+                    ret.push(item);
+                }
+            } else if (v instanceof MapValue || !(v instanceof NilValue)) {
+                ret.push(v);
+            }
+        }
+
+        return ret;
+    }
+
+    static concat(...args) {
+        return new ListValue(CoreLib._concat(args));
+    }
+
+    static nth(l, idx) {
+        //TODO: check type
+        let i = idx.value;
+        if (i < 0 || i >= l.value.length) {
+            throw new Error(`index out of range (${i}/${l.value.length})`);
+        }
+
+        return l.value[i];
+    }
+
+    static first(l) {
+        //TODO: check type
+        if (l instanceof NilValue || l.value.length == 0)
+            return NilValue.Value;
+
+        return l.value[0];
+    }
+
+    static rest(l) {
+        //TODO: check type
+        if (l instanceof NilValue || l.value.length <= 1)
+            return ListValue.Empty;
+
+        return new ListValue(l.value.splice(1));
+    }
+
+    static throw(exc) {
+        //TODO: check type
+        throw new Error(exc);
+    }
+
+    static apply(f, ...args) {
+        //TODO: check type
+        return f.value(args);
+    }
+
+    static map(f, ...args) {
+        //TODO: check type
+        let arr = CoreLib._concat(args);
+        return new ListValue(arr.map(f.value));
+    }
+
+    static nilCheck(a) {
+        return BoolValue.create(a instanceof NilValue);
+    }
+
+    static trueCheck(a) {
+        return BoolValue.create(a instanceof BoolValue && a.value);
+    }
+
+    static falseCheck(a) {
+        return BoolValue.create(a instanceof BoolValue && !a.value);
+    }
+
+    static symbolCheck(a) {
+        return BoolValue.create(a instanceof SymbolValue);
+    }
+
+    static symbol(s) {
+        //TODO: check type
+        return new SymbolValue(s.value);
+    }
+
+    static keyword(s) {
+        //TODO: check type
+        return new KeywordValue(s.value);
+    }
+
+    static keywordCheck(k) {
+        return BoolValue.create(k instanceof KeywordValue);
+    }
+
+    static vector(...args) {
+        return new VectorValue(args);
+    }
+
+    static vectorCheck(v) {
+        return BoolValue.create(v instanceof VectorValue);
+    }
+
+    static sequentialCheck(s) {
+        return BoolValue.create(s instanceof ListValue || s instanceof VectorValue);
+    }
+
+    static hashmap(...args) {
+        return new MapValue(args);
+    }
+
+    static mapCheck(m) {
+        return BoolValue.create(m instanceof MapValue);
+    }
 }
 
 const coreLib = [
@@ -1069,6 +1296,10 @@ const coreLib = [
     ["empty?", CoreLib.emptyCheck],
     ["count", CoreLib.count]
 ];
+
+// ------------------------------
+// ---------- Core lib End ------
+// ------------------------------
 
 function test() {
     let vm = new Interpreter();
