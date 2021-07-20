@@ -502,6 +502,17 @@ class MapValue extends Value {
         this.value[key] = value;
     }
 
+    /**
+     * @returns {MapValue}
+     */
+    clone() {
+        let newM = new MapValue();
+        for (k in this.value) {
+            newM.set(k, this.value[k]);
+        }
+        return newM;
+    }
+
     toString() {
         let s = "<MapValue {";
         for (const key in this.value) {
@@ -1278,6 +1289,24 @@ class CoreLib {
 
     static mapCheck(m) {
         return BoolValue.create(m instanceof MapValue);
+    }
+
+    static assoc(m, ...args) {
+        //TODO: check type
+        let newM = m.clone();
+        for (let i = 0; i < args.length; i += 2) {
+            newM.set(args[i], args[i + 1]);
+        }
+        return newM;
+    }
+
+    static dissoc(m, ...args) {
+        //TODO: check type
+        let newM = m.clone();
+        for (let i = 0; i < args.length; i++) {
+            newM.set(args[i], null);
+        }
+        return newM;
     }
 }
 
