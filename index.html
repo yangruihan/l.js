@@ -11,6 +11,7 @@
         function eval() {
             let vm = new Interpreter();
             CoreLib.registerLib(vm);
+            vm.setEnvValue("*ARGV*", ListValue.Empty);
 
             document.getElementById("output").value = "";
             document.getElementById("result").value = "";
