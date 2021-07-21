@@ -289,6 +289,20 @@ class Reader {
  * printer
  */
 class Printer {
+    static EscapeChar = [
+        ["\\\\", "\\"],
+        ['\\"', '"'],
+        ["\\'", "'"],
+        ["\\a", "\a"],
+        ["\\b", "\b"],
+        ["\\f", "\f"],
+        ["\\n", "\n"],
+        ["\\r", "\r"],
+        ["\\t", "\t"],
+        ["\\v", "\v"],
+        ["\\0", "\0"]
+    ]
+
     constructor() { }
 
     /**
@@ -299,9 +313,39 @@ class Printer {
     static printStr(v, readably) {
         if (readably === undefined) readably = false;
 
-        // TODO: finish this function
-
-        return v.toString();
+        if (Value.isList(v)) {
+            return `(${v.value.map(i => Printer.printStr(i, readably)).join(" ")})`;
+        } else if (Value.isVector(v)) {
+            return `[${v.value.map(i => Printer.printStr(i, readably)).join(" ")}]`;
+        } else if (Value.isMap(v)) {
+            let s = "{";
+            let i = 0;
+            for (k in v.value) {
+                i++;
+                s += `${Printer.printStr(k)} ${Printer.printStr(v.value[k])}`;
+                if (s !== v.value.length) {
+                    s += ", ";
+                }
+            }
+            s += "}";
+            return s;
+        } else if (Value.isString(v)) {
+            if (readably) {
+                let ret = v.value;
+                for (const l in Printer.EscapeChar) {
+                    ret = ret.replace(l[1], l[0]);
+                }
+                return ret;
+            } else {
+                return v.value;
+            }
+        } else if (Value.isFunc(v)) {
+            return v.toString();
+        } else if (Value.isNil(v)) {
+            return "nil";
+        } else {
+            return `${v.value}`;
+        }
     }
 }
 
@@ -1465,12 +1509,12 @@ class CoreLib {
     }
 
     static prn(...args) {
-        CoreLib.outputCallback?.apply(null, [CoreLib.prstr(args)]);
+        CoreLib.outputCallback?.apply(null, [args.map(v => Printer.printStr(v, true)).join("")]);
         return NilValue.Value;
     }
 
     static println(...args) {
-        CoreLib.outputCallback?.apply(null, [CoreLib.str(args)]);
+        CoreLib.outputCallback?.apply(null, [args.map(v => Printer.printStr(v, false)).join("")]);
         return NilValue.Value;
     }
 
