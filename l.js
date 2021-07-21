@@ -336,9 +336,9 @@ class Printer {
                 let ret = v.value;
                 for (let i = 0; i < Scanner.EscapeChar.length; i++) {
                     let l = Scanner.EscapeChar[i];
-                    ret = ret.replace(l[1], l[0]);
+                    ret = ret.replaceAll(l[1], l[0]);
                 }
-                return ret;
+                return `"${ret}"`;
             } else {
                 return v.value;
             }
@@ -1129,9 +1129,9 @@ class Parser {
             let s = t.symbol.substring(1, t.symbol.length - 1);
             for (let i = 0; i < Scanner.EscapeChar.length; i++) {
                 let l = Scanner.EscapeChar[i];
-                s = s.replace(l[0], l[1]);
+                s = s.replaceAll(l[0], l[1]);
             }
-            return Value.string();
+            return Value.string(s);
         } else if (!isNaN(t.symbol)) {
             return Value.num(Number(t.symbol));
         } else {
