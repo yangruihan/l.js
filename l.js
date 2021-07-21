@@ -56,6 +56,20 @@ class Token {
  * scanner
  */
 class Scanner {
+    static EscapeChar = [
+        ["\\\\", "\\"],
+        ['\\"', '"'],
+        ["\\'", "'"],
+        ["\\a", "\a"],
+        ["\\b", "\b"],
+        ["\\f", "\f"],
+        ["\\n", "\n"],
+        ["\\r", "\r"],
+        ["\\t", "\t"],
+        ["\\v", "\v"],
+        ["\\0", "\0"]
+    ]
+
     /**
      * @param {boolean} debug
      */
@@ -159,7 +173,7 @@ class Scanner {
             }
             this._next();
             let nchr = this._peek();
-            if (chr === "\\" && nchr === "\\" && nchr === 'l"') {
+            if (chr === "\\" && (nchr === "\\" || nchr === '\"')) {
                 this._next();
                 nchr = this._peek();
             }
@@ -167,7 +181,9 @@ class Scanner {
         }
         if (this._atEnd()) {
             //TODO: scan error
+            throw new Error("ScanError: no match quote");
         }
+
         this._next();
         return this._makeToken();
     }
@@ -289,20 +305,6 @@ class Reader {
  * printer
  */
 class Printer {
-    static EscapeChar = [
-        ["\\\\", "\\"],
-        ['\\"', '"'],
-        ["\\'", "'"],
-        ["\\a", "\a"],
-        ["\\b", "\b"],
-        ["\\f", "\f"],
-        ["\\n", "\n"],
-        ["\\r", "\r"],
-        ["\\t", "\t"],
-        ["\\v", "\v"],
-        ["\\0", "\0"]
-    ]
-
     constructor() { }
 
     /**
@@ -320,10 +322,10 @@ class Printer {
         } else if (Value.isMap(v)) {
             let s = "{";
             let i = 0;
-            for (k in v.value) {
+            for (const k in v.value) {
                 i++;
                 s += `${Printer.printStr(k)} ${Printer.printStr(v.value[k])}`;
-                if (s !== v.value.length) {
+                if (i !== v.value.length) {
                     s += ", ";
                 }
             }
@@ -332,7 +334,8 @@ class Printer {
         } else if (Value.isString(v)) {
             if (readably) {
                 let ret = v.value;
-                for (const l in Printer.EscapeChar) {
+                for (let i = 0; i < Scanner.EscapeChar.length; i++) {
+                    let l = Scanner.EscapeChar[i];
                     ret = ret.replace(l[1], l[0]);
                 }
                 return ret;
@@ -358,6 +361,14 @@ class Printer {
  */
 class Value {
     static None = new Value();
+
+    /**
+     * @param {object} o 
+     * @returns {boolean}
+     */
+    static isValue(o) {
+        return o instanceof Value;
+    }
 
     /**
      * @param {boolean} b
@@ -815,7 +826,7 @@ class MapValue extends Value {
         this.value = {};
         if (items !== undefined) {
             for (let i = 0; i < items.length; i += 2) {
-                this.value[items[i]] = items[i + 1];
+                this.set(items[i], items[i + 1]);
             }
         }
     }
@@ -825,7 +836,10 @@ class MapValue extends Value {
      * @param {Value} value
      */
     set(key, value) {
-        this.value[key] = value;
+        if (!Value.isValue(value))
+            throw new Error(`Map: Set error, value is not an instanceof Value ${value}`)
+
+        this.value[Value.isValue(key) ? key.value : key] = value;
     }
 
     /**
@@ -833,7 +847,7 @@ class MapValue extends Value {
      * @returns {Value}
      */
     get(key) {
-        return this.value[key]
+        return this.value[Value.isValue(key) ? key.value : key];
     }
 
     /**
@@ -841,7 +855,7 @@ class MapValue extends Value {
      */
     clone() {
         let newM = new MapValue();
-        for (k in this.value) {
+        for (const k in this.value) {
             newM.set(k, this.value[k]);
         }
         return newM;
@@ -910,7 +924,7 @@ class EnvValue extends Value {
                     this.set(binds[i + 1], Value.list(vars));
                     break;
                 } else {
-                    this.set(k, exprs[i]);
+                    this.set(k, exprs[i] === undefined ? Value.Nil : exprs[i]);
                 }
             }
         }
@@ -926,7 +940,7 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     set(s, v) {
-        this.value[s.value] = v;
+        this.value[Value.isValue(s) ? s.value : s] = v;
         return v;
     }
 
@@ -938,10 +952,11 @@ class EnvValue extends Value {
         let ret = this.value[symbol.value];
         let o = this.outer;
         while (ret === undefined && o !== null) {
-            ret = o.value[symbol.value];
+            ret = o.value[Value.isValue(symbol) ? symbol.value : symbol];
             o = o.outer;
         }
-        return [ret !== undefined ? ret : NilValue.Value, ret !== undefined];
+        return [ret !== undefined ? ret : NilValue.Value,
+        ret !== undefined];
     }
 
     /**
@@ -1111,7 +1126,12 @@ class Parser {
         } else if (t.symbol.startsWith(":")) {
             return Value.keyword(t.symbol);
         } else if (t.symbol.startsWith('"')) {
-            return Value.string(t.symbol.substring(1, t.symbol.length - 1));
+            let s = t.symbol.substring(1, t.symbol.length - 1);
+            for (let i = 0; i < Scanner.EscapeChar.length; i++) {
+                let l = Scanner.EscapeChar[i];
+                s = s.replace(l[0], l[1]);
+            }
+            return Value.string();
         } else if (!isNaN(t.symbol)) {
             return Value.num(Number(t.symbol));
         } else {
@@ -1169,7 +1189,7 @@ class Parser {
         if (src === undefined || src === "")
             return Value.Nil;
 
-        let scanner = new Scanner(false);
+        let scanner = new Scanner(true);
         let tokens = scanner.scan(src);
         this.reader = new Reader(tokens);
         let ret = this._readForm();
@@ -1206,7 +1226,7 @@ class Interpreter {
     macroExpand(v, env) {
         while (Value.isMacroCall(v, env)) {
             let [f, found] = env.get(v.value[0]);
-            if (!found) throw new Error(`Variable ${v.value[0].value} not found!`);
+            if (!found) throw new Error(`MacroExpand: Variable ${v.value[0].value} not found!`);
             //TODO: check f type
             v = f.value.apply(null, v.value.slice(1));
         }
@@ -1221,7 +1241,7 @@ class Interpreter {
     evalAst(v, env) {
         if (Value.isSymbol(v)) {
             let [ret, found] = env.get(v);
-            if (!found) throw new Error(`Variable ${v.value} not found!`);
+            if (!found) throw new Error(`EvalAst: Variable ${v.value} not found!`);
             return ret;
         } else if (Value.isList(v)) {
             let ret = [];
@@ -1299,13 +1319,15 @@ class Interpreter {
                         }
                     } else if (firstValue === "fn*") {
                         let i = this;
+                        let binds = v.value[1].value;
+                        let body = v.value[2];
                         return Value.func(function (...args) {
                             let newEnv = Value.env(
                                 env,
-                                v.value[1].value,
+                                binds,
                                 args
                             );
-                            return i.eval(v.value[2], newEnv);
+                            return i.eval(body, newEnv);
                         });
                     } else if (firstValue === "quote") {
                         return v.value[1];
@@ -1422,6 +1444,14 @@ class Interpreter {
         for (let i = 0; i < lib.length; i++) {
             this.env.set(Value.symbol(lib[i][0]), Value.func(lib[i][1]));
         }
+    }
+
+    /**
+     * @param {string|SymbolValue} k 
+     * @param {Value} v 
+     */
+    setEnvValue(k, v) {
+        this.env.set(k, v)
     }
 }
 
@@ -1670,7 +1700,7 @@ class CoreLib {
      */
     static swap(a, f, ...args) {
         //TODO: check type
-        a.value = f.value(a.value, args);
+        a.value = f.value.apply(null, [a.value, ...args]);
         return a.value;
     }
 
@@ -1693,8 +1723,8 @@ class CoreLib {
         for (let i = 0; i < args.length; i++) {
             let v = args[i];
             if (Value.isList(v) || Value.isVector(v)) {
-                for (const item in v.value) {
-                    ret.push(item);
+                for (let i = 0; i < v.value.length; i++) {
+                    ret.push(v.value[i]);
                 }
             } else if (Value.isMap(v) || !Value.isNil(v)) {
                 ret.push(v);
@@ -1709,7 +1739,7 @@ class CoreLib {
      * @returns {Value}
      */
     static concat(...args) {
-        return Value.list(CoreLib._concat(args));
+        return Value.list(CoreLib._concat(...args));
     }
 
     /**
@@ -1767,7 +1797,7 @@ class CoreLib {
      */
     static apply(f, ...args) {
         //TODO: check type
-        return f.value(args);
+        return f.value(...args);
     }
 
     /**
@@ -1777,8 +1807,8 @@ class CoreLib {
      */
     static map(f, ...args) {
         //TODO: check type
-        let arr = CoreLib._concat(args);
-        return Value.list(arr.map(f.value));
+        let arr = CoreLib._concat(...args);
+        return Value.list(arr.map(i => f.value(i)));
     }
 
     /**
@@ -1902,7 +1932,7 @@ class CoreLib {
         //TODO: check type
         let newM = m.clone();
         for (let i = 0; i < args.length; i++) {
-            newM.set(args[i], null);
+            newM.set(args[i], undefined);
         }
         return newM;
     }
