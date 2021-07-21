@@ -1286,7 +1286,6 @@ class Interpreter {
                         let ret = this.evalAst(v, env);
                         let func = ret.value[0];
                         let params = ret.value.splice(1);
-                        console.log(func);
                         return func.value.apply(null, params);
                     }
                 }
