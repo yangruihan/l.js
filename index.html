@@ -7,6 +7,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>l.js</title>
     <script src="./l.js"></script>
+    <script>
+        function eval() {
+            let vm = new Interpreter();
+            CoreLib.registerLib(vm);
+
+            document.getElementById("output").value = "";
+            document.getElementById("result").value = "";
+
+            outputStr = "";
+            CoreLib.outputCallback = function (s) {
+                outputStr += `${s}\n`;
+                document.getElementById("output").value = outputStr;
+            };
+            let src = document.getElementById("input").value;
+            let ret = vm.repl(src);
+            document.getElementById("result").value = ret;
+        }
+    </script>
 </head>
 
 <body>
