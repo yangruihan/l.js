@@ -24,8 +24,12 @@
                 document.getElementById("output").value = outputStr;
             };
             let src = document.getElementById("input").value;
-            let ret = vm.rep(`(do ${src})`);
-            document.getElementById("result").value = ret;
+            try {
+                let ret = vm.rep(`(do ${src})`);
+                document.getElementById("result").value = ret;
+            } catch (error) {
+                document.getElementById("result").value = error.message;
+            }
         }
     </script>
 </head>
