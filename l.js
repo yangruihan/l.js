@@ -1208,7 +1208,7 @@ class Interpreter {
             let [f, found] = env.get(v.value[0]);
             if (!found) throw new Error(`Variable ${v.value[0].value} not found!`);
             //TODO: check f type
-            v = f.value.apply(null, v.value.splice(1));
+            v = f.value.apply(null, v.value.slice(1));
         }
         return v;
     }
@@ -1326,7 +1326,7 @@ class Interpreter {
                                         Value.symbol("concat"),
                                         firstValue.value[1],
                                         quasiquote(
-                                            Value.list(a.value.splice(1))
+                                            Value.list(a.value.slice(1))
                                         )
                                     ]);
                                 } else {
@@ -1334,7 +1334,7 @@ class Interpreter {
                                         Value.symbol("cons"),
                                         quasiquote(a.value[0]),
                                         quasiquote(
-                                            Value.list(a.value.splice(1))
+                                            Value.list(a.value.slice(1))
                                         )
                                     ]);
                                 }
@@ -1376,7 +1376,7 @@ class Interpreter {
                     } else {
                         let ret = this.evalAst(v, env);
                         let func = ret.value[0];
-                        let params = ret.value.splice(1);
+                        let params = ret.value.slice(1);
                         return func.value.apply(null, params);
                     }
                 }
@@ -1748,7 +1748,7 @@ class CoreLib {
         if (Value.isNil(l) || l.value.length <= 1)
             return ListValue.Empty;
 
-        return Value.list(l.value.splice(1));
+        return Value.list(l.value.slice(1));
     }
 
     /**
