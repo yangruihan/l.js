@@ -1343,7 +1343,6 @@ class Interpreter {
 // ---------- Core lib ----------
 // ------------------------------
 class CoreLib {
-    static logCallback = null;
     static readFileCallback = null;
     static outputCallback = null;
     static inputCallback = null;
@@ -1427,12 +1426,12 @@ class CoreLib {
     }
 
     static prn(...args) {
-        CoreLib.logCallback?.apply(null, [CoreLib.prstr(args)]);
+        CoreLib.outputCallback?.apply(null, [CoreLib.prstr(args)]);
         return NilValue.Value;
     }
 
     static println(...args) {
-        CoreLib.logCallback?.apply(null, [CoreLib.str(args)]);
+        CoreLib.outputCallback?.apply(null, [CoreLib.str(args)]);
         return NilValue.Value;
     }
 
@@ -1802,12 +1801,3 @@ class CoreLib {
 // ------------------------------
 
 //#endregion
-
-function test() {
-    let vm = new Interpreter();
-    CoreLib.registerLib(vm);
-    let src = "(list 1 2 3)";
-    console.log(vm.repl(src));
-}
-
-test();
