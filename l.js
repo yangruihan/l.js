@@ -542,10 +542,11 @@ class Value {
      * @returns {boolean}
      */
     static isMacroCall(v, env) {
-        if (!(v instanceof ListValue) || !(v.value[0] instanceof SymbolValue)) {
+        if (!Value.isList(v) || !Value.isSymbol(v.value[0])) {
             return false;
         }
-        let f = env.get(v.value[0]);
+        let [f, found] = env.get(v.value[0]);
+        if (!found) return false;
         return Value.isMacro(f);
     }
 
@@ -894,7 +895,7 @@ class EnvValue extends Value {
             ret = o.value[symbol.value];
             o = o.outer;
         }
-        return ret !== undefined ? ret : NilValue.Value;
+        return [ret !== undefined ? ret : NilValue.Value, ret !== undefined];
     }
 
     /**
@@ -1138,6 +1139,14 @@ class Parser {
 class Interpreter {
     constructor() {
         this.env = Value.env();
+        this.init();
+    }
+
+    init() {
+        this.rep("(def! *host-language* \"js\")");
+        this.rep("(def! not (fn* [a] (if a false true)))");
+        this.rep("(def! load-file (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))");
+        this.rep("(defmacro! cond (fn* [& xs] (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
     }
 
     /**
@@ -1147,7 +1156,8 @@ class Interpreter {
      */
     macroExpand(v, env) {
         while (Value.isMacroCall(v, env)) {
-            let f = env.get(v.value[0]);
+            let [f, found] = env.get(v.value[0]);
+            if (!found) throw new Error(`Variable ${v.value[0].value} not found!`);
             v = f.apply(null, v.value.splice(1));
         }
         return v;
@@ -1160,7 +1170,8 @@ class Interpreter {
      */
     evalAst(v, env) {
         if (Value.isSymbol(v)) {
-            let ret = env.get(v);
+            let [ret, found] = env.get(v);
+            if (!found) throw new Error(`Variable ${v.value} not found!`);
             return ret;
         } else if (Value.isList(v)) {
             let ret = [];
@@ -1222,7 +1233,7 @@ class Interpreter {
                         v = v.value[2];
                         env = newEnv;
                     } else if (firstValue === "do") {
-                        let seq = v.value.slice(0, -1);
+                        let seq = v.value.slice(1, -1);
                         if (seq.length > 0) {
                             this.evalAst(Value.list(seq), env);
                         }
@@ -1237,13 +1248,14 @@ class Interpreter {
                                 : v.value[3];
                         }
                     } else if (firstValue === "fn*") {
+                        let i = this;
                         return Value.func(function (...args) {
                             let newEnv = Value.env(
                                 env,
                                 v.value[1].value,
                                 args
                             );
-                            return this.eval(v.value[2], newEnv);
+                            return i.eval(v.value[2], newEnv);
                         });
                     } else if (firstValue === "quote") {
                         return v.value[1];
@@ -1282,6 +1294,34 @@ class Interpreter {
                         return this.macroExpand(v.value[1], env);
                     } else if (firstValue === "try*") {
                         // TODO: exception
+                        let exp = null;
+                        let ret = null;
+                        try {
+                            ret = this.eval(v.value[1], env);
+                        } catch (exception) {
+                            exp = exception;
+                        }
+
+                        if (exp !== null) {
+                            if (exp instanceof Error) {
+                                exp = Value.exception(exp.message);
+                            }
+
+                            // check there is a catch
+                            if (v.value[2] !== undefined
+                                && Value.isPair(v.value[2])
+                                && Value.isSymbol(v.value[2].value[0], "catch*")) {
+                                ret = this.eval(v.value[2].value[2], Value.env(
+                                    env,
+                                    Value.list([v.value[2].value[1]]),
+                                    Value.list([exp])
+                                ));
+                            } else {
+                                throw new Error(exp.value);
+                            }
+                        }
+
+                        return ret;
                     } else {
                         let ret = this.evalAst(v, env);
                         let func = ret.value[0];
@@ -1318,7 +1358,7 @@ class Interpreter {
     /**
      * @param {string} src
      */
-    repl(src) {
+    rep(src) {
         let ast = this.read(src);
         let ret = this.eval(ast, this.env);
         return this.print(ret);
@@ -1639,13 +1679,13 @@ class CoreLib {
 
     static readline(s) {
         //TODO: check type
-        if (this.outputCallback !== null)
-            this.outputCallback(s.value);
+        if (CoreLib.outputCallback !== null)
+            CoreLib.outputCallback(s.value);
 
-        if (this.inputCallback === null)
+        if (CoreLib.inputCallback === null)
             return NilValue.Value;
 
-        return Value.string(this.inputCallback());
+        return Value.string(CoreLib.inputCallback());
     }
 
     static timems() {
@@ -1791,7 +1831,7 @@ class CoreLib {
      * @param {Interpreter} interpreter 
      */
     static registerLib(interpreter) {
-        interpreter.registerLib(this.libs);
+        interpreter.registerLib(CoreLib.libs);
     }
 }
 
