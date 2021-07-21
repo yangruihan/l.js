@@ -1808,7 +1808,8 @@ class CoreLib {
     static map(f, ...args) {
         //TODO: check type
         let arr = CoreLib._concat(...args);
-        return Value.list(arr.map(i => f.value(i)));
+        return Value.list(arr.map(
+            i => f.value.apply(null, Value.isList(i) ? i.value : [i])));
     }
 
     /**
@@ -1995,7 +1996,10 @@ class CoreLib {
         if (CoreLib.inputCallback === null)
             return NilValue.Value;
 
-        return Value.string(CoreLib.inputCallback());
+        let input = CoreLib.inputCallback();
+        return input === undefined || input === null
+            ? StrValue.Empty
+            : Value.string(input);
     }
 
     /**
