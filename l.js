@@ -1797,7 +1797,7 @@ class CoreLib {
      */
     static apply(f, ...args) {
         //TODO: check type
-        return f.value(...args);
+        return f.value.apply(null, CoreLib._concat(...args));
     }
 
     /**
@@ -1809,7 +1809,7 @@ class CoreLib {
         //TODO: check type
         let arr = CoreLib._concat(...args);
         return Value.list(arr.map(
-            i => f.value.apply(null, Value.isList(i) ? i.value : [i])));
+            i => f.value(i)));
     }
 
     /**
@@ -1964,8 +1964,8 @@ class CoreLib {
      */
     static keys(m) {
         //TODO: check type
-        let keys = []
-        for (k in m.value) {
+        let keys = [];
+        for (const k in m.value) {
             keys.push(k);
         }
         return Value.list(keys);
@@ -1978,7 +1978,7 @@ class CoreLib {
     static vals(m) {
         //TODO: check type
         let vals = []
-        for (k in m.value) {
+        for (const k in m.value) {
             vals.push(m.vals[k]);
         }
         return Value.list(vals);
