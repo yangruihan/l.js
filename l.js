@@ -384,10 +384,12 @@ class Value {
     }
 
     /**
-     * @param {string} s
+     * @param {string?} s
      * @returns {StrValue}
      */
     static string(s) {
+        if (s === undefined || s === "")
+            return StrValue.Empty;
         return new StrValue(s);
     }
 
@@ -569,7 +571,7 @@ class Value {
      * @returns {boolean}
      */
     static isFalse(v) {
-        return this.isNil(v) || (this.isBool(v) && !v.value);
+        return Value.isNil(v) || (Value.isBool(v) && !v.value);
     }
 
     /**
@@ -577,7 +579,7 @@ class Value {
      * @returns {boolean}
      */
     static isTrue(v) {
-        return !this.isFalse(v);
+        return !Value.isFalse(v);
     }
 
     /**
@@ -641,7 +643,7 @@ class Value {
             }
         }
 
-        return v.value === v.value;
+        return this.value === v.value;
     }
 }
 
@@ -924,7 +926,7 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     set(s, v) {
-        this.value[s.value] = v;
+        this.value[s] = v;
         return v;
     }
 
@@ -933,10 +935,10 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     find(symbol) {
-        let ret = this.value[symbol.value];
+        let ret = this.value[symbol];
         let o = this.outer;
         while (ret === undefined && o !== null) {
-            ret = o.value[symbol.value];
+            ret = o.value[symbol];
             o = o.outer;
         }
         return [ret !== undefined ? ret : NilValue.Value, ret !== undefined];
@@ -1160,10 +1162,13 @@ class Parser {
     }
 
     /**
-     * @param {string} src
+     * @param {string?} src
      * @returns {Value}
      */
     parse(src) {
+        if (src === undefined || src === "")
+            return Value.Nil;
+
         let scanner = new Scanner(false);
         let tokens = scanner.scan(src);
         this.reader = new Reader(tokens);
@@ -1202,7 +1207,8 @@ class Interpreter {
         while (Value.isMacroCall(v, env)) {
             let [f, found] = env.get(v.value[0]);
             if (!found) throw new Error(`Variable ${v.value[0].value} not found!`);
-            v = f.apply(null, v.value.splice(1));
+            //TODO: check f type
+            v = f.value.apply(null, v.value.splice(1));
         }
         return v;
     }
@@ -1314,7 +1320,8 @@ class Interpreter {
                                     return a.value[1];
                                 } else if (
                                     Value.isPair(firstValue)
-                                    && Value.isSymbol(firstValue.value[0], "splice-unquote")) {
+                                    && Value.isSymbol(firstValue.value[0],
+                                        "splice-unquote")) {
                                     return Value.list([
                                         Value.symbol("concat"),
                                         firstValue.value[1],
@@ -1357,8 +1364,8 @@ class Interpreter {
                                 && Value.isSymbol(v.value[2].value[0], "catch*")) {
                                 ret = this.eval(v.value[2].value[2], Value.env(
                                     env,
-                                    Value.list([v.value[2].value[1]]),
-                                    Value.list([exp])
+                                    [v.value[2].value[1]],
+                                    [exp]
                                 ));
                             } else {
                                 throw new Error(exp.value);
@@ -1430,6 +1437,11 @@ class CoreLib {
     static outputCallback = null;
     static inputCallback = null;
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static add(a, b) {
         //TODO: check a b type
         if (Value.isNum(a) && Value.isNum(b))
@@ -1438,92 +1450,172 @@ class CoreLib {
             return Value.string(a.value + b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static dec(a, b) {
         //TODO: check a b type
         return Value.num(a.value - b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static mul(a, b) {
         //TODO: check a b type
         return Value.num(a.value * b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static div(a, b) {
         //TODO: check a b type
         return Value.num(a.value / b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static equal(a, b) {
         //TODO: check a b type
-        return BoolValue.create(a === b);
+        return BoolValue.create(a.equals(b));
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static less(a, b) {
         //TODO: check a b type
         return BoolValue.create(a.value < b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static lessEq(a, b) {
         //TODO: check a b type
         return BoolValue.create(a.value <= b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static great(a, b) {
         //TODO: check a b type
         return BoolValue.create(a.value > b.value);
     }
 
+    /**
+     * @param {Value} a 
+     * @param {Value} b 
+     * @returns {Value}
+     */
     static greatEq(a, b) {
         //TODO: check a b type
         return BoolValue.create(a.value >= b.value);
     }
 
+    /**
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static list(...args) {
         return Value.list(args);
     }
 
+    /**
+     * @param  {Value} l
+     * @returns {Value}
+     */
     static listCheck(l) {
         return BoolValue.create(Value.isList(l));
     }
 
+    /**
+     * @param  {Value} l
+     * @returns {Value}
+     */
     static emptyCheck(l) {
         return Value.isList(l) && l.value.length == 0
             ? BoolValue.True
             : BoolValue.False;
     }
 
+    /**
+     * @param  {Value} l
+     * @returns {Value}
+     */
     static count(l) {
-        return Value.isList(1)
+        return Value.isList(l)
             ? Value.num(l.value.length)
             : NumValue.Zero;
     }
 
+    /**
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static prstr(...args) {
         if (args.length == 0) return StrValue.Empty;
         return Value.string(args.map(v => Printer.printStr(v, true)).join(""));
     }
 
+    /**
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static str(...args) {
         if (args.length == 0) return StrValue.Empty;
         return Value.string(args.map(v => Printer.printStr(v, false)).join(""));
     }
 
+    /**
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static prn(...args) {
         CoreLib.outputCallback?.apply(null, [args.map(v => Printer.printStr(v, true)).join("")]);
         return NilValue.Value;
     }
 
+    /**
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static println(...args) {
         CoreLib.outputCallback?.apply(null, [args.map(v => Printer.printStr(v, false)).join("")]);
         return NilValue.Value;
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static readString(s) {
         //TODO: catch parse exception
         let p = new Parser();
-        return p.parse(p);
+        return p.parse(s.value);
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static slurp(s) {
         if (!CoreLib.readFileCallback) {
             throw new Error("read file not implement!");
@@ -1533,36 +1625,69 @@ class CoreLib {
         return Value.string(CoreLib.readFileCallback(s.value) + "\n");
     }
 
+    /**
+     * @param  {Value} v
+     * @returns {Value}
+     */
     static atom(v) {
         return Value.atom(v);
     }
 
+    /**
+     * @param  {Value} v
+     * @returns {Value}
+     */
     static atomCheck(v) {
         return BoolValue.create(Value.isAtom(v));
     }
 
+    /**
+     * @param  {Value} a
+     * @returns {Value}
+     */
     static deref(a) {
         //TODO: check a type
         return a.value;
     }
 
+    /**
+     * @param  {Value} a
+     * @param  {Value} newV
+     * @returns {Value}
+     */
     static reset(a, newV) {
         //TODO: check a type
         a.value = newV;
         return newV;
     }
 
+    /**
+     * 
+     * @param {Value} a 
+     * @param {Value} f 
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static swap(a, f, ...args) {
         //TODO: check type
         a.value = f.value(a.value, args);
         return a.value;
     }
 
+    /**
+     * @param  {Value} f
+     * @param  {Value} l
+     * @returns {Value}
+     */
     static cons(f, l) {
         //TODO: check type
         return Value.list(insert(l.value, 0, f))
     }
 
+    /**
+     * @param  {...Value} args
+     * @returns {Value[]}
+     */
     static _concat(...args) {
         let ret = []
         for (let i = 0; i < args.length; i++) {
@@ -1579,10 +1704,19 @@ class CoreLib {
         return ret;
     }
 
+    /**
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
     static concat(...args) {
         return Value.list(CoreLib._concat(args));
     }
 
+    /**
+     * @param  {Value} l
+     * @param  {Value} idx
+     * @returns {Value}
+     */
     static nth(l, idx) {
         //TODO: check type
         let i = idx.value;
@@ -1593,6 +1727,10 @@ class CoreLib {
         return l.value[i];
     }
 
+    /**
+     * @param  {Value} l
+     * @returns {Value}
+     */
     static first(l) {
         //TODO: check type
         if (Value.isNil(l) || l.value.length == 0)
@@ -1601,6 +1739,10 @@ class CoreLib {
         return l.value[0];
     }
 
+    /**
+     * @param  {Value} l
+     * @returns {Value}
+     */
     static rest(l) {
         //TODO: check type
         if (Value.isNil(l) || l.value.length <= 1)
@@ -1609,72 +1751,139 @@ class CoreLib {
         return Value.list(l.value.splice(1));
     }
 
+    /**
+     * @param  {Value} exc
+     * @returns {Error}
+     */
     static throw(exc) {
         //TODO: check type
         throw new Error(exc);
     }
 
+    /**
+     * @param  {Value} f
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static apply(f, ...args) {
         //TODO: check type
         return f.value(args);
     }
 
+    /**
+     * @param  {Value} f
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static map(f, ...args) {
         //TODO: check type
         let arr = CoreLib._concat(args);
         return Value.list(arr.map(f.value));
     }
 
+    /**
+     * @param  {Value} a
+     * @returns {Value}
+     */
     static nilCheck(a) {
         return BoolValue.create(Value.isNil(a));
     }
 
+    /**
+     * @param  {Value} a
+     * @returns {Value}
+     */
     static trueCheck(a) {
         return BoolValue.create(Value.isBool(a) && a.value);
     }
 
+    /**
+     * @param  {Value} a
+     * @returns {Value}
+     */
     static falseCheck(a) {
         return BoolValue.create(Value.isBool(a) && !a.value);
     }
 
+    /**
+     * @param  {Value} a
+     * @returns {Value}
+     */
     static symbolCheck(a) {
         return BoolValue.create(Value.isSymbol(a));
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static symbol(s) {
         //TODO: check type
         return Value.symbol(s.value);
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static keyword(s) {
         //TODO: check type
         return Value.keyword(s.value);
     }
 
+    /**
+     * @param  {Value} k
+     * @returns {Value}
+     */
     static keywordCheck(k) {
         return BoolValue.create(Value.isKeyword(k));
     }
 
+    /**
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static vector(...args) {
         return Value.vector(args);
     }
 
+    /**
+     * @param  {Value} v
+     * @returns {Value}
+     */
     static vectorCheck(v) {
         return BoolValue.create(Value.isVector(v));
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static sequentialCheck(s) {
         return BoolValue.create(Value.isList(s) || Value.isVector(s));
     }
 
+    /**
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static hashmap(...args) {
         return Value.map(args);
     }
 
+    /**
+     * @param  {Value} m
+     * @returns {Value}
+     */
     static mapCheck(m) {
         return BoolValue.create(Value.isMap(m));
     }
 
+    /**
+     * @param  {Value} m
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static assoc(m, ...args) {
         //TODO: check type
         let newM = m.clone();
@@ -1684,6 +1893,11 @@ class CoreLib {
         return newM;
     }
 
+    /**
+     * @param  {Value} m
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static dissoc(m, ...args) {
         //TODO: check type
         let newM = m.clone();
@@ -1693,16 +1907,30 @@ class CoreLib {
         return newM;
     }
 
+    /**
+     * @param  {Value} m
+     * @param  {Value} key
+     * @returns {Value}
+     */
     static get(m, key) {
         //TODO: check type
         let ret = m.get(key);
         return ret === undefined ? NilValue.Value : ret;
     }
 
+    /**
+     * @param  {Value} m
+     * @param  {Value} key
+     * @returns {Value}
+     */
     static containsCheck(m, key) {
         return BoolValue.create(m.get(key) !== undefined);
     }
 
+    /**
+     * @param  {Value} m
+     * @returns {Value}
+     */
     static keys(m) {
         //TODO: check type
         let keys = []
@@ -1712,6 +1940,10 @@ class CoreLib {
         return Value.list(keys);
     }
 
+    /**
+     * @param  {Value} m
+     * @returns {Value}
+     */
     static vals(m) {
         //TODO: check type
         let vals = []
@@ -1721,6 +1953,10 @@ class CoreLib {
         return Value.list(vals);
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static readline(s) {
         //TODO: check type
         if (CoreLib.outputCallback !== null)
@@ -1732,16 +1968,28 @@ class CoreLib {
         return Value.string(CoreLib.inputCallback());
     }
 
+    /**
+     * @returns {Value}
+     */
     static timems() {
         return Value.num(Date.now());
     }
 
+    /**
+     * @param  {Value} f
+     * @returns {Value}
+     */
     static meta(f) {
         //TODO: check type
         let ret = f.meta;
         return ret === undefined ? NilValue.Value : ret;
     }
 
+    /**
+     * @param  {Value} f
+     * @param  {Value} v
+     * @returns {Value}
+     */
     static withmeta(f, v) {
         //TODO: check type
         let newF = f.clone();
@@ -1749,23 +1997,43 @@ class CoreLib {
         return newF;
     }
 
+    /**
+     * @param  {Value} f
+     * @returns {Value}
+     */
     static fnCheck(f) {
         //TODO: check type
         return BoolValue.create(Value.isRealFunc(f));
     }
 
+    /**
+     * @param  {Value} m
+     * @returns {Value}
+     */
     static macroCheck(m) {
         return BoolValue.create(Value.isMacro(m));
     }
 
+    /**
+     * @param  {Value} s
+     * @returns {Value}
+     */
     static stringCheck(s) {
         return BoolValue.create(Value.isString(s));
     }
 
+    /**
+     * @param  {Value} n
+     * @returns {Value}
+     */
     static numberCheck(n) {
         return BoolValue.create(Value.isNumber(n));
     }
 
+    /**
+     * @param  {Value} v
+     * @returns {Value}
+     */
     static seq(v) {
         //TODO: check type
         if (Value.isNil(v)) {
@@ -1792,6 +2060,11 @@ class CoreLib {
         }
     }
 
+    /**
+     * @param  {Value} l
+     * @param  {...Value} args
+     * @returns {Value}
+     */
     static conj(l, ...args) {
         //TODO: check type
         let ret = l.value.slice();
