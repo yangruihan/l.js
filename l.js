@@ -907,7 +907,7 @@ class EnvValue extends Value {
                     for (let j = i; j < exprs.length; j++) {
                         vars.push(exprs[j]);
                     }
-                    this.set(binds[i + 1], new ListValue(vars));
+                    this.set(binds[i + 1], Value.list(vars));
                     break;
                 } else {
                     this.set(k, exprs[i]);
@@ -926,7 +926,7 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     set(s, v) {
-        this.value[s] = v;
+        this.value[s.value] = v;
         return v;
     }
 
@@ -935,10 +935,10 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     find(symbol) {
-        let ret = this.value[symbol];
+        let ret = this.value[symbol.value];
         let o = this.outer;
         while (ret === undefined && o !== null) {
-            ret = o.value[symbol];
+            ret = o.value[symbol.value];
             o = o.outer;
         }
         return [ret !== undefined ? ret : NilValue.Value, ret !== undefined];
