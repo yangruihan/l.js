@@ -16,12 +16,15 @@
             document.getElementById("result").value = "";
 
             outputStr = "";
+            CoreLib.inputCallback = function () {
+                return prompt("Input", "");
+            };
             CoreLib.outputCallback = function (s) {
                 outputStr += `${s}\n`;
                 document.getElementById("output").value = outputStr;
             };
             let src = document.getElementById("input").value;
-            let ret = vm.repl(src);
+            let ret = vm.rep(`(do ${src})`);
             document.getElementById("result").value = ret;
         }
     </script>
@@ -29,11 +32,11 @@
 
 <body>
     <div>input</div>
-    <textarea name="input" id="input" cols="30" rows="10"></textarea>
+    <textarea name="input" id="input" cols="100" rows="10"></textarea>
     <div>output</div>
-    <textarea name="output" id="output" cols="30" rows="10"></textarea>
+    <textarea name="output" id="output" cols="100" rows="10"></textarea>
     <div>result</div>
-    <textarea name="result" id="result" cols="30" rows="10"></textarea>
+    <textarea name="result" id="result" cols="100" rows="10"></textarea>
     <button onclick="eval()">Eval</button>
 </body>
 
