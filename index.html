@@ -8,9 +8,10 @@
     <title>l.js</title>
     <script src="./l.js"></script>
     <script>
-        function eval() {
+        function run() {
             let vm = new Interpreter();
             CoreLib.registerLib(vm);
+            JsLib.registerLib(vm);
             vm.setEnvValue("*ARGV*", ListValue.Empty);
 
             document.getElementById("output").value = "";
@@ -38,7 +39,7 @@
             } catch (error) {
                 document.getElementById("result").value = error.message;
                 console.error("----- exception -----");
-                console.error(s);
+                console.error(error.message);
                 console.error("----- exception end -----");
             }
         }
@@ -52,7 +53,7 @@
     <textarea name="output" id="output" cols="100" rows="10"></textarea>
     <div>result</div>
     <textarea name="result" id="result" cols="100" rows="10"></textarea>
-    <button onclick="eval()">Eval</button>
+    <button onclick="run()">Eval</button>
 </body>
 
 </html>
