@@ -624,12 +624,14 @@ class Value {
 
     /**
      * @param {Value} v
+     * @param {boolean} canEmpty
      * @returns {boolean}
      */
-    static isPair(v) {
+    static isPair(v, canEmpty) {
+        canEmpty = canEmpty === undefined ? false : canEmpty;
         return (
             (v instanceof ListValue || v instanceof VectorValue) &&
-            v.value.length > 0
+            (canEmpty || v.value.length > 0)
         );
     }
 
@@ -852,7 +854,7 @@ class MapValue extends Value {
      */
     set(key, value) {
         if (!Value.isValue(value))
-            throw new EvalError(`Map: Set error, value is not an instanceof Value ${value}(${typeof(value)})`)
+            throw new EvalError(`Map: Set error, value is not an instanceof Value ${value}(${typeof (value)})`)
 
         this.value[Value.isValue(key) ? key.value : key] = value;
     }
@@ -955,6 +957,9 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     set(s, v) {
+        if (!Value.isValue(v))
+            throw new EvalError(`Env: set error, value is not an instance of Value ${v}(${typeof (v)})`);
+
         this.value[Value.isValue(s) ? s.value : s] = v;
         return v;
     }
@@ -964,7 +969,7 @@ class EnvValue extends Value {
      * @returns {Value}
      */
     find(symbol) {
-        let ret = this.value[symbol.value];
+        let ret = this.value[Value.isValue(symbol) ? symbol.value : symbol];
         let o = this.outer;
         while (ret === undefined && o !== null) {
             ret = o.value[Value.isValue(symbol) ? symbol.value : symbol];
@@ -1499,6 +1504,8 @@ class CoreLib {
             return Value.num(a.value + b.value);
         else if (Value.isString(a) || Value.isString(b))
             return Value.string(a.value + b.value);
+
+        throw new EvalError(`add arg must be number or string`);
     }
 
     /**
@@ -1602,9 +1609,7 @@ class CoreLib {
      * @returns {Value}
      */
     static emptyCheck(l) {
-        return Value.isList(l) && l.value.length == 0
-            ? BoolValue.True
-            : BoolValue.False;
+        return BoolValue.create(Value.isList(l) && l.value.length == 0);
     }
 
     /**
@@ -1660,7 +1665,12 @@ class CoreLib {
     static readString(s) {
         //TODO: catch parse exception
         let p = new Parser();
-        return p.parse(s.value);
+        let v = p.parse(s.value);
+        if (!Value.isValue(v)) {
+            throw new EvalError(`parse return invalid`);
+        }
+
+        return v;
     }
 
     /**
@@ -1702,6 +1712,10 @@ class CoreLib {
      */
     static deref(a) {
         //TODO: check a type
+        if (!Value.isValue(a.value)) {
+            throw new EvalError(`atom value is not an instance of Value, ${a.value}(${typeof (a.value)})`)
+        }
+
         return a.value;
     }
 
@@ -1726,6 +1740,10 @@ class CoreLib {
     static swap(a, f, ...args) {
         //TODO: check type
         a.value = f.value.apply(null, [a.value, ...args]);
+        if (!Value.isValue(a.value)) {
+            throw new EvalError(`swap value is not an instance of Value, ${a.value}(${typeof (a.value)})`)
+        }
+
         return a.value;
     }
 
@@ -1788,7 +1806,10 @@ class CoreLib {
      * @returns {Value}
      */
     static nth(l, idx) {
-        //TODO: check type
+        if (!Value.isPair(l)) {
+            throw new EvalError(`nth arg is not a pair`);
+        }
+
         let i = idx.value;
         if (i < 0 || i >= l.value.length) {
             throw new Error(`index out of range (${i}/${l.value.length})`);
@@ -1802,7 +1823,6 @@ class CoreLib {
      * @returns {Value}
      */
     static first(l) {
-        //TODO: check type
         if (Value.isNil(l) || l.value.length == 0)
             return NilValue.Value;
 
@@ -1827,7 +1847,7 @@ class CoreLib {
      */
     static throw(exc) {
         //TODO: check type
-        throw new Error(exc);
+        throw new EvalError(exc);
     }
 
     /**
@@ -1837,7 +1857,11 @@ class CoreLib {
      */
     static apply(f, ...args) {
         //TODO: check type
-        return f.value.apply(null, CoreLib._concat(...args));
+        let ret = f.value.apply(null, CoreLib._concat(...args));
+        if (!Value.isValue(ret)) {
+            throw new EvalError(`apply ret is not an instance of Value, ${ret}(${typeof (ret)})`);
+        }
+        return ret;
     }
 
     /**
@@ -1957,8 +1981,20 @@ class CoreLib {
      */
     static assoc(m, ...args) {
         //TODO: check type
+        if (!Value.isMap(m)) {
+            throw new EvalError(`assoc m is not an instance of Map, ${m}(${typeof (m)})`);
+        }
+
         let newM = m.clone();
         for (let i = 0; i < args.length; i += 2) {
+            if (!Value.isValue(args[i])) {
+                throw new EvalError(`assoc arg(${i}) is not an instance of Value, ${args[i]}(${typeof (args[i])})`);
+            }
+
+            if (!Value.isValue(args[i + 1])) {
+                throw new EvalError(`assoc arg(${i + 1}) is not an instance of Value, ${args[i + 1]}(${typeof (args[i + 1])})`);
+            }
+
             newM.set(args[i], args[i + 1]);
         }
         return newM;
@@ -1971,8 +2007,16 @@ class CoreLib {
      */
     static dissoc(m, ...args) {
         //TODO: check type
+        if (!Value.isMap(m)) {
+            throw new EvalError(`dissoc m is not an instance of Map, ${m}(${typeof (m)})`);
+        }
+
         let newM = m.clone();
         for (let i = 0; i < args.length; i++) {
+            if (!Value.isValue(args[i])) {
+                throw new EvalError(`dissoc arg(${i}) is not an instance of Value, ${args[i]}(${typeof (args[i])})`);
+            }
+
             newM.set(args[i], undefined);
         }
         return newM;
@@ -1985,7 +2029,12 @@ class CoreLib {
      */
     static get(m, key) {
         //TODO: check type
+        if (!Value.isMap(m)) {
+            throw new EvalError(`get m is not an instance of Map, ${m}(${typeof (m)})`);
+        }
+
         let ret = m.get(key);
+
         return ret === undefined ? NilValue.Value : ret;
     }
 
@@ -2006,7 +2055,7 @@ class CoreLib {
         //TODO: check type
         let keys = [];
         for (const k in m.value) {
-            keys.push(k);
+            keys.push(Value.symbol(k));
         }
         return Value.list(keys);
     }
