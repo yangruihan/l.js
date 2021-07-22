@@ -25,6 +25,22 @@ function insert(a, idx, item) {
 // ---------- Base Utils End ----
 // ------------------------------
 
+// ------------------------------
+// ---------- Error -------------
+// ------------------------------
+
+//#region Error
+
+class ParseError extends Error { }
+
+class EvalError extends Error { }
+
+//#endregion
+
+// ------------------------------
+// ---------- Error End ---------
+// ------------------------------
+
 //#endregion
 
 //#region Scanner
@@ -180,8 +196,7 @@ class Scanner {
             chr = nchr;
         }
         if (this._atEnd()) {
-            //TODO: scan error
-            throw new Error("ScanError: no match quote");
+            throw new ParseError(`no match '"' at line ${this.line}`);
         }
 
         this._next();
@@ -837,7 +852,7 @@ class MapValue extends Value {
      */
     set(key, value) {
         if (!Value.isValue(value))
-            throw new Error(`Map: Set error, value is not an instanceof Value ${value}`)
+            throw new EvalError(`Map: Set error, value is not an instanceof Value ${value}(${typeof(value)})`)
 
         this.value[Value.isValue(key) ? key.value : key] = value;
     }
@@ -1020,9 +1035,9 @@ class Parser {
      */
     _readList() {
         let r = this.reader;
-        r.next(); // consume "("
+        let t = r.next(); // consume "("
         if (r.atEnd()) {
-            //TODO: report error
+            throw new ParseError(`no match ')' at line ${t.line}`);
         }
 
         // check empty list
@@ -1032,12 +1047,14 @@ class Parser {
         }
 
         let items = [];
-        while (r.peek().symbol !== ")") {
+        t = r.peek();
+        while (t.symbol !== ")") {
             let v = this._readForm();
             if (r.atEnd()) {
-                //TODO: report error
+                throw new ParseError(`no match ')' at line ${t.line}`);
             }
             items.push(v);
+            t = r.peek();
         }
 
         r.next(); // consume ")"
@@ -1049,9 +1066,9 @@ class Parser {
      */
     _readVector() {
         let r = this.reader;
-        r.next(); // consume "["
+        let t = r.next(); // consume "["
         if (r.atEnd()) {
-            //TODO: report error
+            throw new ParseError(`no match ']' at line ${t.line}`);
         }
 
         // check empty vector
@@ -1061,12 +1078,14 @@ class Parser {
         }
 
         let items = [];
-        while (r.peek().symbol !== "]") {
+        t = r.peek();
+        while (t.symbol !== "]") {
             let v = this._readForm();
             if (r.atEnd()) {
-                //TODO: report error
+                throw new ParseError(`no match ']' at line ${t.line}`);
             }
             items.push(v);
+            t = r.peek();
         }
 
         r.next(); // consume "]"
@@ -1078,9 +1097,9 @@ class Parser {
      */
     _readMap() {
         let r = this.reader;
-        r.next(); // consume "{"
+        let t = r.next(); // consume "{"
         if (r.atEnd()) {
-            //TODO: report error
+            throw new ParseError(`no match ']' at line ${t.line}`);
         }
 
         // check empty map
@@ -1089,12 +1108,14 @@ class Parser {
             return MapValue.Empty;
         }
         let items = [];
-        while (r.peek().symbol !== "}") {
+        t = r.peek();
+        while (t.symbol !== "}") {
             let v = this._readForm();
             if (r.atEnd()) {
-                //TODO: report error
+                throw new ParseError(`no match ']' at line ${t.line}`);
             }
             items.push(v);
+            t = r.peek();
         }
         r.next(); // consume "}"
         return Value.map(items);
@@ -1171,11 +1192,11 @@ class Parser {
             let f2 = this._readForm();
             return Value.list([s, f2, f]);
         } else if (t.symbol === ")") {
-            //TODO: report error
+            throw new ParseError(`no match ')' at line ${t.line}`);
         } else if (t.symbol === "]") {
-            //TODO: report error
+            throw new ParseError(`no match ']' at line ${t.line}`);
         } else if (t.symbol === "}") {
-            //TODO: report error
+            throw new ParseError(`no match '}' at line ${t.line}`);
         } else {
             return this._readAtom();
         }
@@ -1189,7 +1210,7 @@ class Parser {
         if (src === undefined || src === "")
             return Value.Nil;
 
-        let scanner = new Scanner(true);
+        let scanner = new Scanner(false);
         let tokens = scanner.scan(src);
         this.reader = new Reader(tokens);
         let ret = this._readForm();
@@ -1651,8 +1672,12 @@ class CoreLib {
             throw new Error("read file not implement!");
         }
 
-        //TODO: catch read file exception
-        return Value.string(CoreLib.readFileCallback(s.value) + "\n");
+        try {
+            let fileContent = CoreLib.readFileCallback(s.value) + "\n";
+            return Value.string(fileContent);
+        } catch (exp) {
+            throw new EvalError(`Slurp: read file error, ${exp.message}`);
+        }
     }
 
     /**
@@ -1740,6 +1765,21 @@ class CoreLib {
      */
     static concat(...args) {
         return Value.list(CoreLib._concat(...args));
+    }
+
+    /**
+     * @param  {Value} v
+     * @returns {Value}
+     */
+    static vec(v) {
+        if (Value.isVector(v)) {
+            return v;
+        } else if (Value.isList(v)) {
+            let l = v.value.slice();
+            return Value.vector(l);
+        } else {
+            throw new EvalError(`vec called with non-sequential`);
+        }
     }
 
     /**
@@ -2142,6 +2182,7 @@ class CoreLib {
         ["swap!", CoreLib.swap],
         ["cons", CoreLib.cons],
         ["concat", CoreLib.concat],
+        ["vec", CoreLib.vec],
         ["nth", CoreLib.nth],
         ["first", CoreLib.first],
         ["rest", CoreLib.rest],
