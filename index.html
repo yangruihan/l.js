@@ -21,15 +21,25 @@
                 return prompt("Input", "");
             };
             CoreLib.outputCallback = function (s) {
+                alert(s);
                 outputStr += `${s}\n`;
                 document.getElementById("output").value = outputStr;
+                console.log("----- output -----");
+                console.log(s);
+                console.log("----- output end -----");
             };
             let src = document.getElementById("input").value;
             try {
                 let ret = vm.rep(`(do ${src})`);
                 document.getElementById("result").value = ret;
+                console.log("----- ret -----");
+                console.log(ret);
+                console.log("----- ret end -----");
             } catch (error) {
                 document.getElementById("result").value = error.message;
+                console.error("----- exception -----");
+                console.error(s);
+                console.error("----- exception end -----");
             }
         }
     </script>
