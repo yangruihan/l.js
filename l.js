@@ -329,11 +329,16 @@ class Printer {
      */
     static printStr(v, readably) {
         if (readably === undefined) readably = false;
+        if (v === undefined) return "";
 
         if (Value.isList(v)) {
-            return `(${v.value.map(i => Printer.printStr(i, readably)).join(" ")})`;
+            return `(${v.value.map(
+                i => Printer.printStr(i, readably)
+            ).join(" ")})`;
         } else if (Value.isVector(v)) {
-            return `[${v.value.map(i => Printer.printStr(i, readably)).join(" ")}]`;
+            return `[${v.value.map(
+                i => Printer.printStr(i, readably)
+            ).join(" ")}]`;
         } else if (Value.isMap(v)) {
             let s = "{";
             let i = 0;
@@ -676,7 +681,12 @@ class Value {
 }
 
 class NilValue extends Value {
-    static Value = new NilValue();
+    static Value = new NilValue(null);
+
+    constructor(v) {
+        super();
+        this.value = v;
+    }
 
     toString() {
         return `<NilValue>`;
@@ -854,7 +864,8 @@ class MapValue extends Value {
      */
     set(key, value) {
         if (!Value.isValue(value))
-            throw new EvalError(`Map: Set error, value is not an instanceof Value ${value}(${typeof (value)})`)
+            throw new EvalError(`Map: Set error, value is not an instanceof ` +
+                `Value ${value}(${typeof (value)})`)
 
         this.value[Value.isValue(key) ? key.value : key] = value;
     }
@@ -958,7 +969,8 @@ class EnvValue extends Value {
      */
     set(s, v) {
         if (!Value.isValue(v))
-            throw new EvalError(`Env: set error, value is not an instance of Value ${v}(${typeof (v)})`);
+            throw new EvalError(`Env: set error, value is not an instance of ` +
+                `Value ${v}(${typeof (v)})`);
 
         this.value[Value.isValue(s) ? s.value : s] = v;
         return v;
@@ -1234,14 +1246,19 @@ class Parser {
 class Interpreter {
     constructor() {
         this.env = Value.env();
+        this.evalMatchList = [];
         this.init();
     }
 
     init() {
         this.rep("(def! *host-language* \"js\")");
         this.rep("(def! not (fn* [a] (if a false true)))");
-        this.rep("(def! load-file (fn* [f] (eval (read-string (str \"(do \" (slurp f) \"\nnil)\")))))");
-        this.rep("(defmacro! cond (fn* [& xs] (if (> (count xs) 0) (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) (throw \"odd number of forms to cond\")) (cons 'cond (rest (rest xs)))))))");
+        this.rep("(def! load-file (fn* [f] (eval (read-string " +
+            "(str \"(do \" (slurp f) \"\nnil)\")))))");
+        this.rep("(defmacro! cond (fn* [& xs] (if (> (count xs) 0)" +
+            " (list 'if (first xs) (if (> (count xs) 1) (nth xs 1) " +
+            "(throw \"odd number of forms to cond\")) " +
+            "(cons 'cond (rest (rest xs)))))))");
     }
 
     /**
@@ -1252,7 +1269,8 @@ class Interpreter {
     macroExpand(v, env) {
         while (Value.isMacroCall(v, env)) {
             let [f, found] = env.get(v.value[0]);
-            if (!found) throw new Error(`MacroExpand: Variable ${v.value[0].value} not found!`);
+            if (!found) throw new Error(`MacroExpand: Variable ` +
+                `${v.value[0].value} not found!`);
             //TODO: check f type
             v = f.value.apply(null, v.value.slice(1));
         }
@@ -1267,7 +1285,8 @@ class Interpreter {
     evalAst(v, env) {
         if (Value.isSymbol(v)) {
             let [ret, found] = env.get(v);
-            if (!found) throw new Error(`EvalAst: Variable ${v.value} not found!`);
+            if (!found) throw new EvalError(`EvalAst: Variable ` +
+                `${v.value} not found!`);
             return ret;
         } else if (Value.isList(v)) {
             let ret = [];
@@ -1409,7 +1428,8 @@ class Interpreter {
                             // check there is a catch
                             if (v.value[2] !== undefined
                                 && Value.isPair(v.value[2])
-                                && Value.isSymbol(v.value[2].value[0], "catch*")) {
+                                && Value.isSymbol(
+                                    v.value[2].value[0], "catch*")) {
                                 ret = this.eval(v.value[2].value[2], Value.env(
                                     env,
                                     [v.value[2].value[1]],
@@ -1422,6 +1442,20 @@ class Interpreter {
 
                         return ret;
                     } else {
+                        // eval match mode
+                        if (this.evalMatchList.length > 0
+                            && Value.isSymbol(v.value[0])) {
+                            for (let i = this.evalMatchList.length - 1; i >= 0; i--) {
+                                let item = this.evalMatchList[i];
+                                if (item[0].test(v.value[0].value)) {
+                                    let params = this.evalAst(
+                                        Value.list(v.value.slice(1)),
+                                        env);
+                                    return item[1].apply(null, insert(params.value, 0, v.value[0]));
+                                }
+                            }
+                        }
+
                         let ret = this.evalAst(v, env);
                         let func = ret.value[0];
                         let params = ret.value.slice(1);
@@ -1470,6 +1504,25 @@ class Interpreter {
         for (let i = 0; i < lib.length; i++) {
             this.env.set(Value.symbol(lib[i][0]), Value.func(lib[i][1]));
         }
+    }
+
+    /**
+     * @param {RegExp} re 
+     * @param {Function} callback 
+     */
+    registerEvalMatchMode(re, callback) {
+        this.evalMatchList.push([re, callback]);
+    }
+
+    /**
+     * @param {RegExp} re 
+     * @param {Function} callback 
+     */
+    unregisterEvalMatchMode(re, callback) {
+        let idx = this.evalMatchList.findIndex(
+            i => i[0] === re && i[1] === callback);
+        if (idx >= 0 && idx < this.evalMatchList.length)
+            this.evalMatchList.splice(idx, 1);
     }
 
     /**
@@ -1645,7 +1698,8 @@ class CoreLib {
      * @returns {Value}
      */
     static prn(...args) {
-        CoreLib.outputCallback?.apply(null, [args.map(v => Printer.printStr(v, true)).join("")]);
+        CoreLib.outputCallback?.apply(null,
+            [args.map(v => Printer.printStr(v, true)).join("")]);
         return NilValue.Value;
     }
 
@@ -1654,7 +1708,8 @@ class CoreLib {
      * @returns {Value}
      */
     static println(...args) {
-        CoreLib.outputCallback?.apply(null, [args.map(v => Printer.printStr(v, false)).join("")]);
+        CoreLib.outputCallback?.apply(null,
+            [args.map(v => Printer.printStr(v, false)).join("")]);
         return NilValue.Value;
     }
 
@@ -1713,7 +1768,8 @@ class CoreLib {
     static deref(a) {
         //TODO: check a type
         if (!Value.isValue(a.value)) {
-            throw new EvalError(`atom value is not an instance of Value, ${a.value}(${typeof (a.value)})`)
+            throw new EvalError(`atom value is not an instance of Value,` +
+                ` ${a.value}(${typeof (a.value)})`)
         }
 
         return a.value;
@@ -1741,7 +1797,8 @@ class CoreLib {
         //TODO: check type
         a.value = f.value.apply(null, [a.value, ...args]);
         if (!Value.isValue(a.value)) {
-            throw new EvalError(`swap value is not an instance of Value, ${a.value}(${typeof (a.value)})`)
+            throw new EvalError(`swap value is not an instance of Value,` +
+                ` ${a.value}(${typeof (a.value)})`)
         }
 
         return a.value;
@@ -1859,7 +1916,8 @@ class CoreLib {
         //TODO: check type
         let ret = f.value.apply(null, CoreLib._concat(...args));
         if (!Value.isValue(ret)) {
-            throw new EvalError(`apply ret is not an instance of Value, ${ret}(${typeof (ret)})`);
+            throw new EvalError(`apply ret is not an instance of Value,` +
+                ` ${ret}(${typeof (ret)})`);
         }
         return ret;
     }
@@ -1982,17 +2040,20 @@ class CoreLib {
     static assoc(m, ...args) {
         //TODO: check type
         if (!Value.isMap(m)) {
-            throw new EvalError(`assoc m is not an instance of Map, ${m}(${typeof (m)})`);
+            throw new EvalError(`assoc m is not an instance of Map, ` +
+                `${m}(${typeof (m)})`);
         }
 
         let newM = m.clone();
         for (let i = 0; i < args.length; i += 2) {
             if (!Value.isValue(args[i])) {
-                throw new EvalError(`assoc arg(${i}) is not an instance of Value, ${args[i]}(${typeof (args[i])})`);
+                throw new EvalError(`assoc arg(${i}) is not an instance ` +
+                    `of Value, ${args[i]}(${typeof (args[i])})`);
             }
 
             if (!Value.isValue(args[i + 1])) {
-                throw new EvalError(`assoc arg(${i + 1}) is not an instance of Value, ${args[i + 1]}(${typeof (args[i + 1])})`);
+                throw new EvalError(`assoc arg(${i + 1}) is not an instance` +
+                    ` of Value, ${args[i + 1]}(${typeof (args[i + 1])})`);
             }
 
             newM.set(args[i], args[i + 1]);
@@ -2008,13 +2069,15 @@ class CoreLib {
     static dissoc(m, ...args) {
         //TODO: check type
         if (!Value.isMap(m)) {
-            throw new EvalError(`dissoc m is not an instance of Map, ${m}(${typeof (m)})`);
+            throw new EvalError(`dissoc m is not an instance of Map,` +
+                ` ${m}(${typeof (m)})`);
         }
 
         let newM = m.clone();
         for (let i = 0; i < args.length; i++) {
             if (!Value.isValue(args[i])) {
-                throw new EvalError(`dissoc arg(${i}) is not an instance of Value, ${args[i]}(${typeof (args[i])})`);
+                throw new EvalError(`dissoc arg(${i}) is not an instance` +
+                    ` of Value, ${args[i]}(${typeof (args[i])})`);
             }
 
             newM.set(args[i], undefined);
@@ -2030,7 +2093,8 @@ class CoreLib {
     static get(m, key) {
         //TODO: check type
         if (!Value.isMap(m)) {
-            throw new EvalError(`get m is not an instance of Map, ${m}(${typeof (m)})`);
+            throw new EvalError(`get m is not an instance of Map,` +
+                ` ${m}(${typeof (m)})`);
         }
 
         let ret = m.get(key);
@@ -2278,6 +2342,147 @@ class CoreLib {
 
 // ------------------------------
 // ---------- Core lib End ------
+// ------------------------------
+
+//#endregion
+
+//#region Js extend
+
+// ------------------------------
+// ---------- Js extend ---------
+// ------------------------------
+
+class JsObjValue extends Value {
+    /**
+     * @param {object} o 
+     */
+    constructor(o) {
+        super();
+        this.value = o;
+    }
+}
+
+Value.jsObj = function (o) {
+    return new JsObjValue(o);
+}
+
+Value.isJsObjValue = function (v) {
+    return v instanceof JsValue;
+}
+
+class JsLib {
+    static ObjCallRe = /^\.(.+)/
+    static Global = null;
+
+    static libs = [
+        ["new", JsLib.new],
+        ["evaljs", JsLib.evaljs]
+    ];
+
+    /**
+     * @param {Value} v 
+     * @returns {any}
+     */
+    static toJsValue(v) {
+        if (Value.isList(v) || Value.isVector(v)) {
+            let ret = Array(v.value.length);
+            for (let i = 0; i < v.value.length; i++) {
+                ret[i] = JsLib.toJsValue(v.value[i]);
+            }
+            return ret;
+        } else if (Value.isMap(v)) {
+            let ret = {};
+            for (const k in v.value) {
+                ret[k] = JsLib.toJsValue(v.value[k]);
+            }
+            return ret;
+        }
+
+        return v.value;
+    }
+
+    /**
+     * @param {any} v 
+     * @returns {Value}
+     */
+    static toLValue(v) {
+        if (v === undefined || v === null) {
+            return Value.Nil;
+        } else if (typeof v === "boolean") {
+            return Value.bool(v);
+        } else if (typeof v === "number") {
+            return Value.num(v);
+        } else if (typeof v === "string") {
+            return Value.string(v);
+        } else if (v instanceof Array) {
+            return Value.list(v.slice().map(x => JsLib.toLValue(x)));
+        } else if (v.constructor === Object) {
+            let ret = Value.map();
+            for (const k in v) {
+                ret.set(k, JsLib.toLValue(v[k]));
+            }
+            return ret;
+        } else {
+            return Value.jsObj(v);
+        }
+    }
+
+    /**
+     * @param {Value} objname 
+     * @param  {...Value} args 
+     * @returns {Value}
+     */
+    static new(objname, ...args) {
+        let params = args.map(x => JsLib.toJsValue(x));
+        try {
+            let o = JsLib.Global[objname.value].apply(null, params);
+            return Value.jsObj(o);
+        } catch (exp) {
+            throw new EvalError(`new ${objname.value} error: ${exp.message}`);
+        }
+    }
+
+    /**
+     * @param {Value} s 
+     * @returns {Value}
+     */
+    static evaljs(s) {
+        try {
+            let ret = JsLib.Global.eval(s.value);
+            return JsLib.toLValue(ret);
+        } catch (exp) {
+            throw new EvalError(`evaljs ${s.value} error: ${exp.message}`);
+        }
+    }
+
+    /**
+     * @private
+     */
+    static _initGlobal() {
+        try {
+            JsLib.Global = Function('return this')() || (42, eval)('this');
+        } catch (e) {
+            JsLib.Global = window;
+        }
+    }
+
+    /**
+    * @param {Interpreter} interpreter 
+    */
+    static registerLib(interpreter) {
+        JsLib._initGlobal();
+        interpreter.registerLib(JsLib.libs);
+
+        interpreter.registerEvalMatchMode(JsLib.ObjCallRe, function (funcNameValue, ...args) {
+            let o = args[0].value;
+            let params = args.slice(1).map(x => JsLib.toJsValue(x));
+            return JsLib.toLValue(o[funcNameValue.value.slice(1)].apply(o, params));
+        });
+    }
+}
+
+// ------------------------------
+// ---------- Js extend End -----
 // ------------------------------
 
 //#endregion
