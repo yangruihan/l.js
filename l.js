@@ -2376,7 +2376,8 @@ class JsLib {
 
     static libs = [
         ["new", JsLib.new],
-        ["evaljs", JsLib.evaljs]
+        ["evaljs", JsLib.evaljs],
+        ["jsobj", JsLib.jsobj]
     ];
 
     /**
@@ -2408,6 +2409,8 @@ class JsLib {
     static toLValue(v) {
         if (v === undefined || v === null) {
             return Value.Nil;
+        } else if (Value.isValue(v)) {
+            return v;
         } else if (typeof v === "boolean") {
             return Value.bool(v);
         } else if (typeof v === "number") {
@@ -2438,7 +2441,7 @@ class JsLib {
             let o = JsLib.Global[objname.value].apply(null, params);
             return Value.jsObj(o);
         } catch (exp) {
-            throw new EvalError(`new ${objname.value} error: ${exp.message}`);
+            throw new EvalError(`new "${objname.value}" error: ${exp.message}`);
         }
     }
 
@@ -2451,7 +2454,20 @@ class JsLib {
             let ret = JsLib.Global.eval(s.value);
             return JsLib.toLValue(ret);
         } catch (exp) {
-            throw new EvalError(`evaljs ${s.value} error: ${exp.message}`);
+            throw new EvalError(`evaljs "${s.value}" error: ${exp.message}`);
+        }
+    }
+
+    /**
+     * @param {Value} s 
+     * @returns {Value}
+     */
+    static jsobj(s) {
+        try {
+            let o = JsLib.Global[s.value];
+            return Value.jsObj(o);
+        } catch (exp) {
+            throw new EvalError(`jsobj "${s.value}" error: ${exp.message}`);
         }
     }
 
