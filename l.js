@@ -1365,7 +1365,16 @@ class Interpreter {
                     } else if (firstValue === "fn*") {
                         let i = this;
                         let binds = v.value[1].value;
-                        let body = v.value[2];
+                        let body = null;
+                        // combine function body with (do )
+                        if (v.value.length > 3) {
+                            body = new ListValue([
+                                new SymbolValue("do"),
+                                ...v.value.slice(2)
+                            ])
+                        } else {
+                            body = v.value[2];
+                        }
                         return Value.func(function (...args) {
                             let newEnv = Value.env(
                                 env,
@@ -2372,10 +2381,13 @@ Value.isJsObjValue = function (v) {
 
 class JsLib {
     // call jsobj method like .method
-    static ObjCallRe = /^\.(.+)/
+    static ObjCallRe = /^\.(.+)/;
+
+    // assign jsobj property like .=
+    static propertyAssignRe = /^\.=$/;
 
     // call js function like $eval
-    static FnCallRe = /^\$(.+)/
+    static FnCallRe = /^\$(.+)/;
 
     static Global = null;
 
@@ -2505,7 +2517,21 @@ class JsLib {
         interpreter.registerEvalMatchMode(JsLib.ObjCallRe, function (funcNameValue, ...args) {
             let o = args[0].value;
             let params = args.slice(1).map(x => JsLib.toJsValue(x));
-            return JsLib.toLValue(o[funcNameValue.value.slice(1)].apply(o, params));
+            let v = o[funcNameValue.value.slice(1)];
+            if (typeof v === "function" && args.length > 0) {
+                return JsLib.toLValue(v.apply(o, params));
+            } else {
+                return JsLib.toLValue(v);
+            }
+        });
+
+        interpreter.registerEvalMatchMode(JsLib.propertyAssignRe, function (_, obj, property, value) {
+            console.log(obj, property, value);
+            try {
+                obj.value[property.value] = JsLib.toJsValue(value);
+            } catch (exp) {
+                throw new EvalError(`property assign error: ${exp.message}`);
+            }
         });
 
         interpreter.registerEvalMatchMode(JsLib.FnCallRe, function (funcNameValue, ...args) {
