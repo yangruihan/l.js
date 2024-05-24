@@ -2371,7 +2371,12 @@ Value.isJsObjValue = function (v) {
 }
 
 class JsLib {
+    // call jsobj method like .method
     static ObjCallRe = /^\.(.+)/
+
+    // call js function like $eval
+    static FnCallRe = /^\$(.+)/
+
     static Global = null;
 
     static libs = [
@@ -2438,8 +2443,16 @@ class JsLib {
     static new(objname, ...args) {
         let params = args.map(x => JsLib.toJsValue(x));
         try {
-            let o = JsLib.Global[objname.value].apply(null, params);
-            return Value.jsObj(o);
+            const constructor = JsLib.Global[objname.value];
+            if (constructor) {
+                let o = new constructor(...params);
+                return Value.jsObj(o);
+            } else {
+                // create object with eval
+                let s = `new ${objname.value}(${params.map(x => `${x}`).join(",")})`;
+                let o = JsLib.Global.eval(s);
+                return Value.jsObj(o);
+            }
         } catch (exp) {
             throw new EvalError(`new "${objname.value}" error: ${exp.message}`);
         }
@@ -2493,6 +2506,12 @@ class JsLib {
             let o = args[0].value;
             let params = args.slice(1).map(x => JsLib.toJsValue(x));
             return JsLib.toLValue(o[funcNameValue.value.slice(1)].apply(o, params));
+        });
+
+        interpreter.registerEvalMatchMode(JsLib.FnCallRe, function (funcNameValue, ...args) {
+            let funcName = funcNameValue.value.substring(1);
+            let params = args.map(x => JsLib.toJsValue(x));
+            return JsLib.toLValue(JsLib.Global[funcName].apply(null, params));
         });
     }
 }
