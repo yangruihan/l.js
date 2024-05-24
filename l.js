@@ -1468,6 +1468,19 @@ class Interpreter {
                         let ret = this.evalAst(v, env);
                         let func = ret.value[0];
                         let params = ret.value.slice(1);
+
+                        // double chekc for something like (symbol xxx)
+                        // enter eval match mode
+                        if (this.evalMatchList.length > 0
+                            && Value.isSymbol(func)) {
+                            for (let i = this.evalMatchList.length - 1; i >= 0; i--) {
+                                let item = this.evalMatchList[i];
+                                if (item[0].test(func.value)) {
+                                    return item[1].apply(null, insert(params, 0, func));
+                                }
+                            }
+                        }
+
                         return func.value.apply(null, params);
                     }
                 }
