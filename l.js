@@ -2526,7 +2526,6 @@ class JsLib {
         });
 
         interpreter.registerEvalMatchMode(JsLib.propertyAssignRe, function (_, obj, property, value) {
-            console.log(obj, property, value);
             try {
                 obj.value[property.value] = JsLib.toJsValue(value);
             } catch (exp) {
