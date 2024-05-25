@@ -1809,7 +1809,6 @@ class CoreLib {
     }
 
     /**
-     * 
      * @param {Value} a 
      * @param {Value} f 
      * @param  {...Value} args 
@@ -1947,13 +1946,25 @@ class CoreLib {
     /**
      * @param  {Value} f
      * @param  {...Value} args
-     * @returns {Value}
+     * @returns {ListValue}
      */
     static map(f, ...args) {
         //TODO: check type
         let arr = CoreLib._concat(...args);
         return Value.list(arr.map(
             i => f.value(i)));
+    }
+
+    /**
+     * @param {Value} f 
+     * @param  {...Value} args 
+     * @returns {ListValue}
+     */
+    static filter(f, ...args) {
+        // TODO: check type
+        let arr = CoreLib._concat(...args);
+        return Value.list(arr.filter(
+            i => Value.isTrue(f.value(i))));
     }
 
     /**
@@ -2324,6 +2335,7 @@ class CoreLib {
         ["throw", CoreLib.throw],
         ["apply", CoreLib.apply],
         ["map", CoreLib.map],
+        ["fiter", CoreLib.filter],
         ["nil?", CoreLib.nilCheck],
         ["true?", CoreLib.trueCheck],
         ["false?", CoreLib.falseCheck],
