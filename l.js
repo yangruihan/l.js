@@ -2389,7 +2389,7 @@ Value.jsObj = function (o) {
 }
 
 Value.isJsObjValue = function (v) {
-    return v instanceof JsValue;
+    return v instanceof JsObjValue;
 }
 
 class JsLib {
@@ -2528,7 +2528,8 @@ class JsLib {
         interpreter.registerLib(JsLib.libs);
 
         interpreter.registerEvalMatchMode(JsLib.ObjCallRe, function (funcNameValue, ...args) {
-            let o = args[0].value;
+            let obj = args[0];
+            let o = Value.isJsObjValue(obj) ? args[0].value : JsLib.Global[obj.value];
             let params = args.slice(1).map(x => JsLib.toJsValue(x));
             let v = o[funcNameValue.value.slice(1)];
             if (typeof v === "function" && args.length > 0) {
