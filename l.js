@@ -1198,7 +1198,7 @@ class Parser {
         } else if (t.symbol === "~") {
             return this._expand("unquote");
         } else if (t.symbol === "~@") {
-            return this._epxand("splice-unquote");
+            return this._expand("splice-unquote");
         } else if (t.symbol === "@") {
             return this._expand("deref");
         } else if (t.symbol === "^") {
