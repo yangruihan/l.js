@@ -2335,7 +2335,7 @@ class CoreLib {
         ["throw", CoreLib.throw],
         ["apply", CoreLib.apply],
         ["map", CoreLib.map],
-        ["fiter", CoreLib.filter],
+        ["filter", CoreLib.filter],
         ["nil?", CoreLib.nilCheck],
         ["true?", CoreLib.trueCheck],
         ["false?", CoreLib.falseCheck],
